@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { API } from '@/service/api';
+import { useAuth } from '@/context/AuthContext';
 
 export interface INotification {
   id: number;
@@ -13,9 +14,12 @@ async function fetchUserHistory(): Promise<INotification[]> {
 }
 
 export function useNotifications() {
+  const { authentication } = useAuth();
+
   const query = useQuery<INotification[]>({
     queryKey: ['notification'],
     queryFn: fetchUserHistory,
+    enabled: authentication.authenticated,
   });
 
   const sortedData =
@@ -24,7 +28,7 @@ export function useNotifications() {
     }) ?? [];
 
   return {
-    notifications: sortedData,
+    notifications: authentication.authenticated ? sortedData : [],
     ...query,
   };
 }

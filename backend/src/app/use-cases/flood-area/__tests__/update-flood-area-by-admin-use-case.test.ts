@@ -1,5 +1,6 @@
 import { faker } from '@faker-js/faker';
 import { FloodAreaRepositoryMock } from '../../../../test/repositories/flood-area/flood-area-repository-mock';
+import { NotificationRepositoryMock } from '../../../../test/repositories/notification/notification-repository-mock';
 import { FloodAreaMockFactory } from '../../../../test/factories/flood-area/flood-area-factory-mock';
 import { Exception } from '../../../../infra/exception/exception';
 import { messages } from '../../../../infra/config/messages';
@@ -14,6 +15,7 @@ describe('Update Flood Area By Admin Use Case', () => {
   beforeEach(() => {
     useCase = new UpdateFloodAreaByAdminUseCase(
       FloodAreaRepositoryMock,
+      NotificationRepositoryMock,
       UserAlertPreferenceRepositoryMock,
       UserDeviceRepositoryMock,
       PushNotificationServiceMock
@@ -45,6 +47,9 @@ describe('Update Flood Area By Admin Use Case', () => {
     UserDeviceRepositoryMock.listUserDevicesByUserIds = jest.fn().mockResolvedValue([
       { id: 1, userId: 10, pushToken: 'ExponentPushToken[abc]' },
     ]);
+    NotificationRepositoryMock.createNotification = jest
+      .fn()
+      .mockImplementation(async (notification) => notification);
 
     const result = await useCase.execute(userId, updateData);
 
@@ -62,6 +67,7 @@ describe('Update Flood Area By Admin Use Case', () => {
       10,
     ]);
     expect(PushNotificationServiceMock.send).toHaveBeenCalledTimes(1);
+    expect(NotificationRepositoryMock.createNotification).toHaveBeenCalledTimes(1);
     expect(result).toEqual({ ...mockFloodArea, ...updateData });
   });
 
@@ -86,6 +92,7 @@ describe('Update Flood Area By Admin Use Case', () => {
     );
     expect(FloodAreaRepositoryMock.updateFloodArea).not.toHaveBeenCalled();
     expect(PushNotificationServiceMock.send).not.toHaveBeenCalled();
+    expect(NotificationRepositoryMock.createNotification).not.toHaveBeenCalled();
   });
 
   it('should update flood area by admin with null comments', async () => {
@@ -118,6 +125,7 @@ describe('Update Flood Area By Admin Use Case', () => {
       updateData
     );
     expect(PushNotificationServiceMock.send).not.toHaveBeenCalled();
+    expect(NotificationRepositoryMock.createNotification).not.toHaveBeenCalled();
     expect(result).toEqual({ ...mockFloodArea, ...updateData });
   });
 
@@ -147,5 +155,6 @@ describe('Update Flood Area By Admin Use Case', () => {
       UserAlertPreferenceRepositoryMock.listUserAlertPreferencesByLocation
     ).not.toHaveBeenCalled();
     expect(PushNotificationServiceMock.send).not.toHaveBeenCalled();
+    expect(NotificationRepositoryMock.createNotification).not.toHaveBeenCalled();
   });
 });

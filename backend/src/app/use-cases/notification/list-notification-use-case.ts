@@ -3,8 +3,10 @@ import { INotificationRepository } from '../../../domain/repositories/notificati
 export class ListNotificationUseCase {
   constructor(private notificationRepository: INotificationRepository) {}
 
-  async execute() {
-    const notifications = await this.notificationRepository.listNotifications();
+  async execute(userId: number) {
+    const notifications = await this.notificationRepository.listNotifications(
+      userId
+    );
     return notifications;
   }
 }

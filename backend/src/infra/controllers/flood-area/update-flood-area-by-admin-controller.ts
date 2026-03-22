@@ -7,6 +7,7 @@ import {
   UpdateFloodAreaByAdminDTO,
   UpdateFloodAreaByAdminUseCase,
 } from '../../../app/use-cases/flood-area/update-flood-area-by-admin-use-case';
+import { NotificationRepositoryPrisma } from '../../repositories/notification/notification-repository-prisma';
 import { UserAlertPreferenceRepositoryPrisma } from '../../repositories/user/user-alert-preference-repository-prisma';
 import { UserDeviceRepositoryPrisma } from '../../repositories/user/user-device-repository-prisma';
 import { ExpoPushNotificationService } from '../../service/push-notification-expo';
@@ -22,12 +23,14 @@ class UpdateFloodAreaByAdminController {
 
   constructor() {
     const floodAreaRepository = new FloodAreaRepositoryPrisma();
+    const notificationRepository = new NotificationRepositoryPrisma();
     const userAlertPreferenceRepository =
       new UserAlertPreferenceRepositoryPrisma();
     const userDeviceRepository = new UserDeviceRepositoryPrisma();
     const pushNotificationService = new ExpoPushNotificationService();
     this.updateFloodAreaByAdminUseCase = new UpdateFloodAreaByAdminUseCase(
       floodAreaRepository,
+      notificationRepository,
       userAlertPreferenceRepository,
       userDeviceRepository,
       pushNotificationService

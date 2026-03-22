@@ -2,6 +2,7 @@ import { NotificationEntity } from '../../../domain/entities/notification/notifi
 import { INotificationRepository } from '../../../domain/repositories/notification/notification-repository';
 
 export type NotificationDTO = {
+  userId?: number | null;
   content: string;
 };
 

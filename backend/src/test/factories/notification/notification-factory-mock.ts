@@ -7,6 +7,7 @@ export class NotificationMockFactory {
   ): NotificationEntity {
     return {
       id: faker.number.int(),
+      userId: faker.number.int(),
       content: faker.lorem.sentence(),
       createdAt: faker.date.past(),
       updatedAt: faker.date.recent(),

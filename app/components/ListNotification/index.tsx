@@ -47,9 +47,9 @@ const styles = StyleSheet.create({
   createdAt: {
     fontSize: 14,
     textAlign: 'right',
-    // marginBottom: 2,
+    marginBottom: 2,
   },
   message: {
-    fontSize: 16,
+    fontSize: 16
   },
 });

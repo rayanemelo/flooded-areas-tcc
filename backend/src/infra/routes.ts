@@ -80,7 +80,7 @@ export class Routes {
     this.router.put('/faq/:id', updateFaqController.handle);
     this.router.delete('/faq/:id', deleteFaqController.handle);
 
-    this.router.get('/notification', listNotificationController.handle);
+    this.router.get('/notification', authorize, listNotificationController.handle);
     this.router.get('/notification/:id', getNotificationByIdController.handle);
     this.router.post('/notification', createNotificationController.handle);
     this.router.put('/notification/:id', updateNotificationController.handle);

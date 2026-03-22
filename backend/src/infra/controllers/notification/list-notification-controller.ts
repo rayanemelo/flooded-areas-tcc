@@ -15,7 +15,9 @@ class ListNotificationController {
 
   handle = async (req: Request, res: Response) => {
     try {
-      const notifications = await this.listNotificationUseCase.execute();
+      const notifications = await this.listNotificationUseCase.execute(
+        req.userId
+      );
       res.status(200).json(notifications);
     } catch (error) {
       GlobalExceptionHandler.handle(error, res);

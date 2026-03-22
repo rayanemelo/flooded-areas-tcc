@@ -1,7 +1,7 @@
 import { NotificationEntity } from '../../entities/notification/notification-entity';
 
 export interface INotificationRepository {
-  listNotifications(): Promise<NotificationEntity[]>;
+  listNotifications(userId: number): Promise<NotificationEntity[]>;
   getNotificationById(id: number): Promise<NotificationEntity | null>;
   createNotification(
     notification: NotificationEntity

@@ -52,9 +52,12 @@ model UserAdminPasswordAttempts {
 
 model Notification {
   id        Int      @id @default(autoincrement())
+  userId    Int?     @map("user_id")
   content   String
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User? @relation(fields: [userId], references: [id])
 
   @@map("tb_notification")
 }
@@ -70,6 +73,7 @@ model User {
 
   code             Code?
   FloodArea        FloodArea[]
+  notifications    Notification[]
   alertPreferences UserAlertPreference[]
   devices          UserDevice[]
 

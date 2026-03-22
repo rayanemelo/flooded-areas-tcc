@@ -10,19 +10,20 @@ describe('List Notifications Use Case', () => {
     jest.clearAllMocks();
   });
 
-  it('should list all Notifications', async () => {
-    // Arrange
+  it('should list user Notifications', async () => {
     const mockNotifications = NotificationMockFactory.createEntities(5);
+    const userId = 1;
     NotificationRepositoryMock.listNotifications.mockResolvedValueOnce(
       mockNotifications
     );
 
-    // Act
-    const result = await useCase.execute();
+    const result = await useCase.execute(userId);
 
-    // Assert
     expect(NotificationRepositoryMock.listNotifications).toHaveBeenCalledTimes(
       1
+    );
+    expect(NotificationRepositoryMock.listNotifications).toHaveBeenCalledWith(
+      userId
     );
     expect(result).toEqual(mockNotifications);
   });

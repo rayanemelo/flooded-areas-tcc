@@ -3,7 +3,7 @@ import { INotificationRepository } from '../../../domain/repositories/notificati
 
 export const NotificationRepositoryMock: jest.Mocked<INotificationRepository> =
   {
-    listNotifications: jest.fn<Promise<NotificationEntity[]>, []>(),
+    listNotifications: jest.fn<Promise<NotificationEntity[]>, [number]>(),
     getNotificationById: jest.fn<Promise<NotificationEntity>, [number]>(),
     createNotification: jest.fn<
       Promise<NotificationEntity>,

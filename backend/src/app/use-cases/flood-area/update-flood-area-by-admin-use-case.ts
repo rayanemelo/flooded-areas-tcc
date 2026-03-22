@@ -1,4 +1,6 @@
 import { IFloodAreaRepository } from '../../../domain/repositories/flood-area/flood-area-repository';
+import { NotificationEntity } from '../../../domain/entities/notification/notification-entity';
+import { INotificationRepository } from '../../../domain/repositories/notification/notification-repository';
 import { IUserAlertPreferenceRepository } from '../../../domain/repositories/user/user-alert-preference-repository';
 import { IUserDeviceRepository } from '../../../domain/repositories/user/user-device-repository';
 import { IPushNotificationService } from '../../../domain/services/push-notification-service';
@@ -14,13 +16,13 @@ export type UpdateFloodAreaByAdminDTO = {
 export class UpdateFloodAreaByAdminUseCase {
   constructor(
     private floodAreaRepository: IFloodAreaRepository,
+    private notificationRepository: INotificationRepository,
     private userAlertPreferenceRepository: IUserAlertPreferenceRepository,
     private userDeviceRepository: IUserDeviceRepository,
     private pushNotificationService: IPushNotificationService
   ) { }
 
   async execute(id: number, body: UpdateFloodAreaByAdminDTO) {
-    console.log("body: ", body);
     const floodAreaExists = await this.floodAreaRepository.getFloodAreaById(id);
 
     if (!floodAreaExists)
@@ -28,10 +30,9 @@ export class UpdateFloodAreaByAdminUseCase {
 
     const floodArea = await this.floodAreaRepository.updateFloodArea(id, body);
 
-    console.log("floodAreaExists: ", floodAreaExists);
-    // const isCompletedNow =
-    //   body.status.trim().toLowerCase() === 'completed' &&
-    //   floodAreaExists.status.trim().toLowerCase() !== 'completed';
+    const isCompletedNow =
+      body.status.trim().toLowerCase() === 'completed' &&
+      floodAreaExists.status.trim().toLowerCase() !== 'completed';
 
     // if (isCompletedNow) {
     const preferences =
@@ -42,7 +43,7 @@ export class UpdateFloodAreaByAdminUseCase {
 
     console.log("preferences: ", preferences);
     const userIds = [...new Set(preferences.map((preference) => preference.userId))];
-    console.log("userIds: ", userIds);
+    const notificationContent = `Uma area alagada foi confirmada em ${floodAreaExists.city}.`;
 
     if (userIds.length > 0) {
       const devices =
@@ -52,11 +53,11 @@ export class UpdateFloodAreaByAdminUseCase {
       ];
 
       if (pushTokens.length > 0) {
-        const res = await this.pushNotificationService.send(
+        await this.pushNotificationService.send(
           pushTokens.map((pushToken) => ({
             to: pushToken,
             title: 'Novo alerta confirmado',
-            body: `Uma area alagada foi confirmada em ${floodAreaExists.city}.`,
+            body: notificationContent,
             data: {
               floodAreaId: floodArea.id,
               city: floodAreaExists.city,
@@ -65,8 +66,18 @@ export class UpdateFloodAreaByAdminUseCase {
             },
           }))
         );
-        console.log("res: ", res);
       }
+
+      await Promise.all(
+        userIds.map((userId) =>
+          this.notificationRepository.createNotification(
+            new NotificationEntity({
+              userId,
+              content: notificationContent,
+            })
+          )
+        )
+      );
     }
     // }
 
