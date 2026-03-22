@@ -1,0 +1,178 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Faq {
+  id        Int      @id @default(autoincrement())
+  question  String
+  answer    String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("tb_faq")
+}
+
+model UserAdmin {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  active    Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  passwordAttempts UserAdminPasswordAttempts?
+
+  @@map("tb_user_admin")
+}
+
+model UserAdminPasswordAttempts {
+  id            Int      @id @default(autoincrement())
+  userAdminId   Int      @unique @map("user_admin_id")
+  attemptsCount Int      @map("attempts_count")
+  lastAttemptAt DateTime @map("last_attempt_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  userAdmin UserAdmin @relation(fields: [userAdminId], references: [id])
+
+  @@map("tb_user_admin_password_attempts")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("tb_notification")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  phone     String   @unique
+  latitude  String
+  longitude String
+  active    Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  code             Code?
+  FloodArea        FloodArea[]
+  alertPreferences UserAlertPreference[]
+  devices          UserDevice[]
+
+  @@map("tb_user")
+}
+
+model UserAlertPreference {
+  id     Int    @id @default(autoincrement())
+  userId Int    @map("user_id")
+  state  String
+  city   String
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, state, city])
+  @@map("tb_user_alert_preference")
+}
+
+model UserDevice {
+  id        Int    @id @default(autoincrement())
+  userId    Int    @map("user_id")
+  pushToken String @map("push_token")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([pushToken])
+  @@map("tb_user_device")
+}
+
+model Code {
+  id            Int      @id @default(autoincrement())
+  code          String
+  dateExp       DateTime @map("date_exp")
+  attemptsCount Int      @map("attempts_count")
+  userId        Int      @unique @map("user_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("tb_code")
+}
+
+model FloodArea {
+  id            Int      @id @default(autoincrement())
+  address       String
+  latitude      String
+  longitude     String
+  city          String
+  state         String
+  active        Boolean  @default(false)
+  status        String // pending, approved, rejected
+  userId        Int      @map("user_id")
+  floodLevelId  Int      @map("flood_level_id")
+  commentsAdmin String?  @map("comments_admin")
+  yesCount      Int      @default(0) @map("yes_count")
+  noCount       Int      @default(0) @map("no_count")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user       User                 @relation(fields: [userId], references: [id])
+  floodLevel FloodLevel           @relation(fields: [floodLevelId], references: [id])
+  images     Images[]
+  aiAnalysis FloodAreaAiAnalysis?
+
+  @@map("tb_flood_area")
+}
+
+model FloodAreaAiAnalysis {
+  id            Int      @id @default(autoincrement())
+  floodAreaId   Int      @unique @map("flood_area_id")
+  imageUrl      String   @map("image_url")
+  isFlood       Boolean? @map("is_flood")
+  confidence    Float?
+  veracityScore Float?   @map("veracity_score")
+  analysis      String?
+  metadata      Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  floodArea FloodArea @relation(fields: [floodAreaId], references: [id])
+
+  @@map("tb_flood_area_ai_analysis")
+}
+
+model FloodLevel {
+  id        Int      @id @default(autoincrement())
+  level     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  FloodArea FloodArea[]
+
+  @@map("tb_flood_level")
+}
+
+model Images {
+  id          Int       @id @default(autoincrement())
+  url         String
+  floodAreaId Int       @map("flood_area_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  FloodArea   FloodArea @relation(fields: [floodAreaId], references: [id])
+
+  @@map("tb_images")
+}

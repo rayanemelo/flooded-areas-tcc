@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  # backend:
+  #   build: .
+  #   container_name: backend-node
+  #   restart: unless-stopped
+  #   ports:
+  #     - '3331:3331'
+  #   environment:
+  #     - DATABASE_URL=postgresql://postgres:postgres@db:5432/tcc_db
+  #   depends_on:
+  #     - db
+
+  db:
+    image: postgres:16
+    container_name: postgres-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=tccuser
+      - POSTGRES_PASSWORD=tccpsw
+      - POSTGRES_DB=tcc_db
+    ports:
+      - '5432:5432'
