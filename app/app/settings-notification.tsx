@@ -19,17 +19,17 @@ type StateType = {
 
 const STATES: StateType[] = [
   {
-    id: 'rs',
+    id: 'RS',
     name: 'Rio Grande do Sul',
     cities: ['Porto Alegre', 'Sapiranga', 'Novo Hamburgo', 'Taquara'],
   },
   {
-    id: 'sp',
+    id: 'SP',
     name: 'Sao Paulo',
     cities: ['Sao Paulo', 'Campinas', 'Santos', 'Sorocaba'],
   },
   {
-    id: 'sc',
+    id: 'SC',
     name: 'Santa Catarina',
     cities: ['Florianopolis', 'Blumenau', 'Joinville'],
   },

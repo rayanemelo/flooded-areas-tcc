@@ -65,6 +65,9 @@ yarn prisma generate
 # Rode as migrations do banco
 yarn prisma migrate dev
 
+# Criar dados no banco
+yarn db:bootstrap
+
 # Inicie a aplicação em modo dev
 yarn dev
 ```

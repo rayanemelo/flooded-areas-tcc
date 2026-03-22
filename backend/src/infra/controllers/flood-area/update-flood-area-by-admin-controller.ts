@@ -7,6 +7,9 @@ import {
   UpdateFloodAreaByAdminDTO,
   UpdateFloodAreaByAdminUseCase,
 } from '../../../app/use-cases/flood-area/update-flood-area-by-admin-use-case';
+import { UserAlertPreferenceRepositoryPrisma } from '../../repositories/user/user-alert-preference-repository-prisma';
+import { UserDeviceRepositoryPrisma } from '../../repositories/user/user-device-repository-prisma';
+import { ExpoPushNotificationService } from '../../service/push-notification-expo';
 
 const bodySchema = z.object({
   active: z.boolean(),
@@ -19,8 +22,15 @@ class UpdateFloodAreaByAdminController {
 
   constructor() {
     const floodAreaRepository = new FloodAreaRepositoryPrisma();
+    const userAlertPreferenceRepository =
+      new UserAlertPreferenceRepositoryPrisma();
+    const userDeviceRepository = new UserDeviceRepositoryPrisma();
+    const pushNotificationService = new ExpoPushNotificationService();
     this.updateFloodAreaByAdminUseCase = new UpdateFloodAreaByAdminUseCase(
-      floodAreaRepository
+      floodAreaRepository,
+      userAlertPreferenceRepository,
+      userDeviceRepository,
+      pushNotificationService
     );
   }
 

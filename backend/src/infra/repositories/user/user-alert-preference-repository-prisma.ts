@@ -15,6 +15,18 @@ export class UserAlertPreferenceRepositoryPrisma
     });
   }
 
+  async listUserAlertPreferencesByLocation(
+    state: string,
+    city: string
+  ): Promise<UserAlertPreferenceEntity[]> {
+    return await prisma.userAlertPreference.findMany({
+      where: {
+        state,
+        city,
+      },
+    });
+  }
+
   async getUserAlertPreferenceById(
     id: number
   ): Promise<UserAlertPreferenceEntity | null> {

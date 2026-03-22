@@ -165,6 +165,8 @@ export const MarkerFloodProvider = ({ children }: MarkerFloodProviderProps) => {
       ...floodAreaForm,
       latitude: floodAreaForm.latitude.toString(),
       longitude: floodAreaForm.longitude.toString(),
+      city: "Taquara", // FIXME
+      state: "RS", // FIXME
       status: 'pending',
       userLocation: {
         latitude: userLocation.latitude.toString(),

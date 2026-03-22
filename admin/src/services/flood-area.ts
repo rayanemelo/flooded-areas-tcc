@@ -13,6 +13,8 @@ export type FloodAreaImage = {
 export type FloodArea = {
   id: number;
   address: string;
+  city: string;
+  state: string;
   latitude: string;
   longitude: string;
   active: boolean;

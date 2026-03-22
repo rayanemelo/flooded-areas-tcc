@@ -2,6 +2,10 @@ import { UserAlertPreferenceEntity } from '../../entities/user/user-alert-prefer
 
 export interface IUserAlertPreferenceRepository {
   listUserAlertPreferences(userId: number): Promise<UserAlertPreferenceEntity[]>;
+  listUserAlertPreferencesByLocation(
+    state: string,
+    city: string
+  ): Promise<UserAlertPreferenceEntity[]>;
   getUserAlertPreferenceById(
     id: number
   ): Promise<UserAlertPreferenceEntity | null>;

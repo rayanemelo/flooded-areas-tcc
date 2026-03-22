@@ -4,12 +4,20 @@ import { FloodAreaMockFactory } from '../../../../test/factories/flood-area/floo
 import { Exception } from '../../../../infra/exception/exception';
 import { messages } from '../../../../infra/config/messages';
 import { UpdateFloodAreaByAdminUseCase } from '../update-flood-area-by-admin-use-case';
+import { UserAlertPreferenceRepositoryMock } from '../../../../test/repositories/user/user-alert-preference-repository-mock';
+import { UserDeviceRepositoryMock } from '../../../../test/repositories/user/user-device-repository-mock';
+import { PushNotificationServiceMock } from '../../../../test/repositories/push-notification/push-notification-service-mock';
 
 describe('Update Flood Area By Admin Use Case', () => {
   let useCase: UpdateFloodAreaByAdminUseCase;
 
   beforeEach(() => {
-    useCase = new UpdateFloodAreaByAdminUseCase(FloodAreaRepositoryMock);
+    useCase = new UpdateFloodAreaByAdminUseCase(
+      FloodAreaRepositoryMock,
+      UserAlertPreferenceRepositoryMock,
+      UserDeviceRepositoryMock,
+      PushNotificationServiceMock
+    );
     jest.clearAllMocks();
   });
 
@@ -30,6 +38,13 @@ describe('Update Flood Area By Admin Use Case', () => {
     FloodAreaRepositoryMock.updateFloodArea = jest
       .fn()
       .mockResolvedValue({ ...mockFloodArea, ...updateData });
+    UserAlertPreferenceRepositoryMock.listUserAlertPreferencesByLocation =
+      jest.fn().mockResolvedValue([
+        { id: 1, userId: 10, state: mockFloodArea.state, city: mockFloodArea.city },
+      ]);
+    UserDeviceRepositoryMock.listUserDevicesByUserIds = jest.fn().mockResolvedValue([
+      { id: 1, userId: 10, pushToken: 'ExponentPushToken[abc]' },
+    ]);
 
     const result = await useCase.execute(userId, updateData);
 
@@ -40,6 +55,13 @@ describe('Update Flood Area By Admin Use Case', () => {
       userId,
       updateData
     );
+    expect(
+      UserAlertPreferenceRepositoryMock.listUserAlertPreferencesByLocation
+    ).toHaveBeenCalledWith(mockFloodArea.state, mockFloodArea.city);
+    expect(UserDeviceRepositoryMock.listUserDevicesByUserIds).toHaveBeenCalledWith([
+      10,
+    ]);
+    expect(PushNotificationServiceMock.send).toHaveBeenCalledTimes(1);
     expect(result).toEqual({ ...mockFloodArea, ...updateData });
   });
 
@@ -63,6 +85,7 @@ describe('Update Flood Area By Admin Use Case', () => {
       userId
     );
     expect(FloodAreaRepositoryMock.updateFloodArea).not.toHaveBeenCalled();
+    expect(PushNotificationServiceMock.send).not.toHaveBeenCalled();
   });
 
   it('should update flood area by admin with null comments', async () => {
@@ -82,6 +105,8 @@ describe('Update Flood Area By Admin Use Case', () => {
     FloodAreaRepositoryMock.updateFloodArea = jest
       .fn()
       .mockResolvedValue({ ...mockFloodArea, ...updateData });
+    UserAlertPreferenceRepositoryMock.listUserAlertPreferencesByLocation =
+      jest.fn().mockResolvedValue([]);
 
     const result = await useCase.execute(userId, updateData);
 
@@ -92,6 +117,35 @@ describe('Update Flood Area By Admin Use Case', () => {
       userId,
       updateData
     );
+    expect(PushNotificationServiceMock.send).not.toHaveBeenCalled();
     expect(result).toEqual({ ...mockFloodArea, ...updateData });
+  });
+
+  it('should not send push notification when status was already completed', async () => {
+    const mockFloodArea = FloodAreaMockFactory.createEntity({
+      status: 'completed',
+    });
+    const userId = faker.number.int();
+
+    const updateData = {
+      active: true,
+      status: 'completed',
+      commentsAdmin: null,
+    };
+
+    FloodAreaRepositoryMock.getFloodAreaById = jest
+      .fn()
+      .mockResolvedValue(mockFloodArea);
+
+    FloodAreaRepositoryMock.updateFloodArea = jest
+      .fn()
+      .mockResolvedValue({ ...mockFloodArea, ...updateData });
+
+    await useCase.execute(userId, updateData);
+
+    expect(
+      UserAlertPreferenceRepositoryMock.listUserAlertPreferencesByLocation
+    ).not.toHaveBeenCalled();
+    expect(PushNotificationServiceMock.send).not.toHaveBeenCalled();
   });
 });

@@ -148,7 +148,7 @@ export function useSettingsNotifications(states: StateOption[]) {
       if (!pushToken) return;
 
       await savePreferencesMutation.mutateAsync({
-        state: stateData.name,
+        state: stateData.id,
         cities: selectedCities,
         pushToken,
       });

@@ -11,6 +11,16 @@ export class UserDeviceRepositoryPrisma implements IUserDeviceRepository {
     });
   }
 
+  async listUserDevicesByUserIds(userIds: number[]): Promise<UserDeviceEntity[]> {
+    return await prisma.userDevice.findMany({
+      where: {
+        userId: {
+          in: userIds.map(Number),
+        },
+      },
+    });
+  }
+
   async getUserDeviceById(id: number): Promise<UserDeviceEntity | null> {
     return await prisma.userDevice.findUnique({
       where: {
