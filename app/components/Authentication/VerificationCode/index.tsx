@@ -52,7 +52,9 @@ const VerificationCode = ({
         {form.code.map((digit, index) => (
           <TextInput
             key={index}
-            ref={(el) => (inputRefs.current[index] = el)}
+            ref={(el) => {
+              inputRefs.current[index] = el;
+            }}
             style={styles.input}
             value={digit}
             onChangeText={(text) => handleChange(text, index)}

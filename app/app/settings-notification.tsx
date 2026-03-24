@@ -92,254 +92,259 @@ function SettingsNotificationContent() {
   }, [cities, citySearch]);
 
   return (
-    <ScrollView
-      style={[styles.screen, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.container}
-    >
-      <Text style={[styles.title, { color: colors.title }]}>
-        Notificações por localidade
-      </Text>
-      <Text style={[styles.subtitle, { color: colors.subtitle }]}>
-        Escolha um Estado e selecione as cidades onde você deseja receber alertas.
-      </Text>
-
-      <Text style={[styles.label, { color: colors.label }]}>Estado</Text>
-      <Pressable
-        style={[
-          styles.inputField,
-          {
-            borderColor: colors.inputBorder,
-            backgroundColor: colors.inputBackground,
-          },
-        ]}
-        onPress={() => setIsStateOpen((current) => !current)}
+    <>
+      <ScrollView
+        style={[styles.screen, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.container}
       >
-        <Text
-          style={[
-            styles.inputValue,
-            { color: colors.inputText },
-            !selectedState && styles.placeholderText,
-            !selectedState && { color: colors.placeholder },
-          ]}
-        >
-          {selectedStateLabel}
+        <Text style={[styles.title, { color: colors.title }]}>
+          Notificações por localidade
         </Text>
-        <Ionicons
-          name={isStateOpen ? 'chevron-up' : 'chevron-down'}
-          size={18}
-          color={colors.icon}
-        />
-      </Pressable>
+        <Text style={[styles.subtitle, { color: colors.subtitle }]}>
+          Escolha um Estado e selecione as cidades onde você deseja receber alertas.
+        </Text>
 
-      {isStateOpen && (
-        <View
+        <Text style={[styles.label, { color: colors.label }]}>Estado</Text>
+        <Pressable
           style={[
-            styles.dropdown,
+            styles.inputField,
             {
               borderColor: colors.inputBorder,
-              backgroundColor: colors.dropdownBackground,
+              backgroundColor: colors.inputBackground,
             },
           ]}
+          onPress={() => setIsStateOpen((current) => !current)}
         >
-          <ScrollView
-            style={styles.dropdownScrollArea}
-            contentContainerStyle={styles.dropdownScrollContent}
-            nestedScrollEnabled
-            showsVerticalScrollIndicator={false}
-          >
-            {STATES.map((state) => {
-              const isSelected = state.id === selectedState;
-
-              return (
-                <Pressable
-                  key={state.id}
-                  style={[
-                    styles.optionRow,
-                    {
-                      borderColor: colors.inputBorder,
-                    },
-                    isSelected && styles.optionRowSelected,
-                    isSelected && {
-                      backgroundColor: colors.optionSelectedBackground,
-                    },
-                  ]}
-                  onPress={() => handleSelectState(state.id)}
-                >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      { color: colors.optionText },
-                      isSelected && styles.optionTextSelected,
-                      isSelected && { color: colors.optionTextSelected },
-                    ]}
-                  >
-                    {state.name}
-                  </Text>
-                  {isSelected && (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={20}
-                      color={COLORS.lightBlue}
-                    />
-                  )}
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
-      )}
-
-      {stateData && (
-        <>
-          <Text style={[styles.label, { color: colors.label }]}>Cidades</Text>
-          <Pressable
+          <Text
             style={[
-              styles.inputField,
+              styles.inputValue,
+              { color: colors.inputText },
+              !selectedState && styles.placeholderText,
+              !selectedState && { color: colors.placeholder },
+            ]}
+          >
+            {selectedStateLabel}
+          </Text>
+          <Ionicons
+            name={isStateOpen ? 'chevron-up' : 'chevron-down'}
+            size={18}
+            color={colors.icon}
+          />
+        </Pressable>
+
+        {isStateOpen && (
+          <View
+            style={[
+              styles.dropdown,
               {
                 borderColor: colors.inputBorder,
-                backgroundColor: colors.inputBackground,
+                backgroundColor: colors.dropdownBackground,
               },
-              isCitiesDisabled && styles.buttonDisabled,
             ]}
-            onPress={() => {
-              if (isCitiesDisabled) return;
-              setIsCitiesOpen((current) => !current);
-            }}
-            disabled={isCitiesDisabled}
           >
-            <Text
-              style={[
-                styles.inputValue,
-                { color: colors.inputText },
-                selectedCities.length === 0 && styles.placeholderText,
-                selectedCities.length === 0 && { color: colors.placeholder },
-              ]}
-              numberOfLines={1}
+            <ScrollView
+              style={styles.dropdownScrollArea}
+              contentContainerStyle={styles.dropdownScrollContent}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator={false}
             >
-              {isFetchingCities ? 'Carregando cidades...' : selectedCitiesLabel}
-            </Text>
-            <Ionicons
-              name={isCitiesOpen ? 'chevron-up' : 'chevron-down'}
-              size={18}
-              color={colors.icon}
-            />
-          </Pressable>
+              {STATES.map((state) => {
+                const isSelected = state.id === selectedState;
 
-          {isCitiesOpen && (
-            <View
-              style={[
-                styles.dropdown,
-                {
-                  borderColor: colors.inputBorder,
-                  backgroundColor: colors.dropdownBackground,
-                },
-              ]}
-            >
-              <TextInput
-                value={citySearch}
-                onChangeText={setCitySearch}
-                placeholder="Buscar cidade..."
-                placeholderTextColor={colors.placeholder}
-                style={[
-                  styles.searchInput,
-                  {
-                    borderColor: colors.inputBorder,
-                    backgroundColor: colors.inputBackground,
-                    color: colors.inputText,
-                  },
-                ]}
-              />
-              <ScrollView
-                style={styles.dropdownScrollArea}
-                contentContainerStyle={styles.dropdownScrollContent}
-                nestedScrollEnabled
-                showsVerticalScrollIndicator={false}
-              >
-                {filteredCities.map((city) => {
-                  const isSelected = selectedCities.includes(city);
-
-                  return (
-                    <Pressable
-                      key={city}
-                      style={[
-                        styles.optionRow,
-                        {
-                          borderColor: colors.inputBorder,
-                        },
-                        isSelected && styles.optionRowSelected,
-                        isSelected && {
-                          backgroundColor: colors.optionSelectedBackground,
-                        },
-                      ]}
-                      onPress={() => toggleCity(city)}
-                    >
-                      <Text
-                        style={[
-                          styles.optionText,
-                          { color: colors.optionText },
-                          isSelected && styles.optionTextSelected,
-                          isSelected && { color: colors.optionTextSelected },
-                        ]}
-                      >
-                        {city}
-                      </Text>
-                      <Ionicons
-                        name={isSelected ? 'checkbox' : 'square-outline'}
-                        size={20}
-                        color={isSelected ? COLORS.lightBlue : colors.icon}
-                      />
-                    </Pressable>
-                  );
-                })}
-                {filteredCities.length === 0 && (
-                  <View
+                return (
+                  <Pressable
+                    key={state.id}
                     style={[
-                      styles.emptyState,
+                      styles.optionRow,
                       {
                         borderColor: colors.inputBorder,
-                        backgroundColor: colors.inputBackground,
+                      },
+                      isSelected && styles.optionRowSelected,
+                      isSelected && {
+                        backgroundColor: colors.optionSelectedBackground,
                       },
                     ]}
+                    onPress={() => handleSelectState(state.id)}
                   >
-                    <Text style={[styles.emptyStateText, { color: colors.helper }]}>
-                      Nenhuma cidade encontrada.
+                    <Text
+                      style={[
+                        styles.optionText,
+                        { color: colors.optionText },
+                        isSelected && styles.optionTextSelected,
+                        isSelected && { color: colors.optionTextSelected },
+                      ]}
+                    >
+                      {state.name}
                     </Text>
-                  </View>
-                )}
-              </ScrollView>
-            </View>
-          )}
-          <Text style={[styles.helperText, { color: colors.helper }]}>
-            {isFetchingCities
-              ? 'Buscando cidades do Estado selecionado.'
-              : 'Você pode selecionar mais de uma cidade.'}
+                    {isSelected && (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={20}
+                        color={COLORS.lightBlue}
+                      />
+                    )}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
+        {stateData && (
+          <>
+            <Text style={[styles.label, { color: colors.label }]}>Cidades</Text>
+            <Pressable
+              style={[
+                styles.inputField,
+                {
+                  borderColor: colors.inputBorder,
+                  backgroundColor: colors.inputBackground,
+                },
+                isCitiesDisabled && styles.buttonDisabled,
+              ]}
+              onPress={() => {
+                if (isCitiesDisabled) return;
+                setIsCitiesOpen((current) => !current);
+              }}
+              disabled={isCitiesDisabled}
+            >
+              <Text
+                style={[
+                  styles.inputValue,
+                  { color: colors.inputText },
+                  selectedCities.length === 0 && styles.placeholderText,
+                  selectedCities.length === 0 && { color: colors.placeholder },
+                ]}
+                numberOfLines={1}
+              >
+                {isFetchingCities ? 'Carregando cidades...' : selectedCitiesLabel}
+              </Text>
+              <Ionicons
+                name={isCitiesOpen ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color={colors.icon}
+              />
+            </Pressable>
+
+            {isCitiesOpen && (
+              <View
+                style={[
+                  styles.dropdown,
+                  {
+                    borderColor: colors.inputBorder,
+                    backgroundColor: colors.dropdownBackground,
+                  },
+                ]}
+              >
+                <TextInput
+                  value={citySearch}
+                  onChangeText={setCitySearch}
+                  placeholder="Buscar cidade..."
+                  placeholderTextColor={colors.placeholder}
+                  style={[
+                    styles.searchInput,
+                    {
+                      borderColor: colors.inputBorder,
+                      backgroundColor: colors.inputBackground,
+                      color: colors.inputText,
+                    },
+                  ]}
+                />
+                <ScrollView
+                  style={styles.dropdownScrollArea}
+                  contentContainerStyle={styles.dropdownScrollContent}
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator={false}
+                >
+                  {filteredCities.map((city) => {
+                    const isSelected = selectedCities.includes(city);
+
+                    return (
+                      <Pressable
+                        key={city}
+                        style={[
+                          styles.optionRow,
+                          {
+                            borderColor: colors.inputBorder,
+                          },
+                          isSelected && styles.optionRowSelected,
+                          isSelected && {
+                            backgroundColor: colors.optionSelectedBackground,
+                          },
+                        ]}
+                        onPress={() => toggleCity(city)}
+                      >
+                        <Text
+                          style={[
+                            styles.optionText,
+                            { color: colors.optionText },
+                            isSelected && styles.optionTextSelected,
+                            isSelected && { color: colors.optionTextSelected },
+                          ]}
+                        >
+                          {city}
+                        </Text>
+                        <Ionicons
+                          name={isSelected ? 'checkbox' : 'square-outline'}
+                          size={20}
+                          color={isSelected ? COLORS.lightBlue : colors.icon}
+                        />
+                      </Pressable>
+                    );
+                  })}
+                  {filteredCities.length === 0 && (
+                    <View
+                      style={[
+                        styles.emptyState,
+                        {
+                          borderColor: colors.inputBorder,
+                          backgroundColor: colors.inputBackground,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.emptyStateText, { color: colors.helper }]}>
+                        Nenhuma cidade encontrada.
+                      </Text>
+                    </View>
+                  )}
+                </ScrollView>
+              </View>
+            )}
+            <Text style={[styles.helperText, { color: colors.helper }]}>
+              {isFetchingCities
+                ? 'Buscando cidades do Estado selecionado.'
+                : 'Você pode selecionar mais de uma cidade.'}
+            </Text>
+          </>
+        )}
+
+        <Pressable
+          style={[styles.button, isSaving && styles.buttonDisabled]}
+          onPress={() => {
+            void handleSave();
+          }}
+          disabled={isSaving}
+        >
+          <Text style={styles.buttonText}>
+            {isSaving ? 'Salvando...' : 'Salvar preferências'}
           </Text>
-        </>
-      )}
+        </Pressable>
 
-      <Pressable
-        style={[styles.button, isSaving && styles.buttonDisabled]}
-        onPress={() => {
-          void handleSave();
-        }}
-        disabled={isSaving}
-      >
-        <Text style={styles.buttonText}>
-          {isSaving ? 'Salvando...' : 'Salvar preferências'}
-        </Text>
-      </Pressable>
 
+      </ScrollView>
       {shouldAuthenticate && (
-        <Authentication
-          handleCancel={() => {
-            setShouldAuthenticate(false);
-          }}
-          handleConfirm={() => {
-            setShouldAuthenticate(false);
-          }}
-        />
+        <View style={[StyleSheet.absoluteFillObject, styles.authOverlay]}>
+          <Authentication
+            handleCancel={() => {
+              setShouldAuthenticate(false);
+            }}
+            handleConfirm={() => {
+              setShouldAuthenticate(false);
+            }}
+          />
+        </View>
       )}
-    </ScrollView>
+    </>
   );
 }
 
@@ -371,6 +376,9 @@ const styles = StyleSheet.create({
   helperText: {
     marginTop: 8,
     lineHeight: 20,
+  },
+  authOverlay: {
+    top: -80,
   },
   inputField: {
     minHeight: 56,

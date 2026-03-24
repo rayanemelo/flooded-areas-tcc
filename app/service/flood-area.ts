@@ -20,6 +20,7 @@ export class FlooadAreaService {
     try {
       return await API.post('/flood-area', payload);
     } catch (error) {
+      console.log("error: ", error);
       console.error(error);
       return null;
     }

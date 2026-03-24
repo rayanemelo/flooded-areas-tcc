@@ -16,6 +16,7 @@ import { COLORS } from '@/styles/colors';
 import { AuthProvider } from '@/context/AuthContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { ServiceUnavailableAlert } from '@/components/shared/ServiceUnavailableAlert';
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
@@ -116,6 +117,7 @@ export default function RootLayout() {
                 }}
               />
             </Stack>
+            <ServiceUnavailableAlert />
           </GestureHandlerRootView>
           <StatusBar style="auto" />
         </AuthProvider>
