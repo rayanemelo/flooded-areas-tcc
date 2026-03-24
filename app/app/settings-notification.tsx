@@ -1,44 +1,43 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import {
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   useColorScheme,
   View,
 } from 'react-native';
 import { COLORS } from '@/styles/colors';
 import { useSettingsNotifications } from '@/hooks/useSettingsNotifications';
+import statesData from '@/constants/states.json';
+import Authentication from '@/components/Authentication';
 
 type StateType = {
   id: string;
   name: string;
-  cities: string[];
 };
 
-const STATES: StateType[] = [
-  {
-    id: 'RS',
-    name: 'Rio Grande do Sul',
-    cities: ['Porto Alegre', 'Sapiranga', 'Novo Hamburgo', 'Taquara'],
-  },
-  {
-    id: 'SP',
-    name: 'Sao Paulo',
-    cities: ['Sao Paulo', 'Campinas', 'Santos', 'Sorocaba'],
-  },
-  {
-    id: 'SC',
-    name: 'Santa Catarina',
-    cities: ['Florianopolis', 'Blumenau', 'Joinville'],
-  },
+type RawStateType = {
+  codigo_uf: number;
+  uf: string;
+  nome: string;
+  latitude: number;
+  longitude: number;
+  regiao: string;
+};
 
-];
+const STATES: StateType[] = (statesData as RawStateType[]).map((state) => ({
+  id: state.uf,
+  name: state.nome,
+}))
+  .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
 function SettingsNotificationContent() {
   const colorScheme = useColorScheme() ?? 'light';
   const isLightTheme = colorScheme === 'light';
+  const [citySearch, setCitySearch] = useState('');
 
   const colors = {
     background: isLightTheme ? COLORS.white : COLORS.black,
@@ -60,12 +59,16 @@ function SettingsNotificationContent() {
   const {
     selectedState,
     selectedCities,
+    cities,
     isStateOpen,
     isCitiesOpen,
     stateData,
     isSaving,
+    isFetchingCities,
+    shouldAuthenticate,
     setIsStateOpen,
     setIsCitiesOpen,
+    setShouldAuthenticate,
     handleSelectState,
     toggleCity,
     handleSave,
@@ -74,6 +77,19 @@ function SettingsNotificationContent() {
   const selectedStateLabel = stateData?.name ?? 'Selecione...';
   const selectedCitiesLabel =
     selectedCities.length > 0 ? selectedCities.join(', ') : 'Selecione...';
+  const isCitiesDisabled =
+    !selectedState || isFetchingCities || cities.length === 0;
+  const filteredCities = useMemo(() => {
+    const normalizedSearch = citySearch.trim().toLocaleLowerCase('pt-BR');
+
+    if (!normalizedSearch) {
+      return cities;
+    }
+
+    return cities.filter((city) =>
+      city.toLocaleLowerCase('pt-BR').includes(normalizedSearch)
+    );
+  }, [cities, citySearch]);
 
   return (
     <ScrollView
@@ -183,8 +199,13 @@ function SettingsNotificationContent() {
                 borderColor: colors.inputBorder,
                 backgroundColor: colors.inputBackground,
               },
+              isCitiesDisabled && styles.buttonDisabled,
             ]}
-            onPress={() => setIsCitiesOpen((current) => !current)}
+            onPress={() => {
+              if (isCitiesDisabled) return;
+              setIsCitiesOpen((current) => !current);
+            }}
+            disabled={isCitiesDisabled}
           >
             <Text
               style={[
@@ -195,7 +216,7 @@ function SettingsNotificationContent() {
               ]}
               numberOfLines={1}
             >
-              {selectedCitiesLabel}
+              {isFetchingCities ? 'Carregando cidades...' : selectedCitiesLabel}
             </Text>
             <Ionicons
               name={isCitiesOpen ? 'chevron-up' : 'chevron-down'}
@@ -214,13 +235,27 @@ function SettingsNotificationContent() {
                 },
               ]}
             >
+              <TextInput
+                value={citySearch}
+                onChangeText={setCitySearch}
+                placeholder="Buscar cidade..."
+                placeholderTextColor={colors.placeholder}
+                style={[
+                  styles.searchInput,
+                  {
+                    borderColor: colors.inputBorder,
+                    backgroundColor: colors.inputBackground,
+                    color: colors.inputText,
+                  },
+                ]}
+              />
               <ScrollView
                 style={styles.dropdownScrollArea}
                 contentContainerStyle={styles.dropdownScrollContent}
                 nestedScrollEnabled
                 showsVerticalScrollIndicator={false}
               >
-                {stateData.cities.map((city) => {
+                {filteredCities.map((city) => {
                   const isSelected = selectedCities.includes(city);
 
                   return (
@@ -256,11 +291,28 @@ function SettingsNotificationContent() {
                     </Pressable>
                   );
                 })}
+                {filteredCities.length === 0 && (
+                  <View
+                    style={[
+                      styles.emptyState,
+                      {
+                        borderColor: colors.inputBorder,
+                        backgroundColor: colors.inputBackground,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.emptyStateText, { color: colors.helper }]}>
+                      Nenhuma cidade encontrada.
+                    </Text>
+                  </View>
+                )}
               </ScrollView>
             </View>
           )}
           <Text style={[styles.helperText, { color: colors.helper }]}>
-            Voce pode selecionar mais de uma cidade.
+            {isFetchingCities
+              ? 'Buscando cidades do Estado selecionado.'
+              : 'Você pode selecionar mais de uma cidade.'}
           </Text>
         </>
       )}
@@ -273,9 +325,20 @@ function SettingsNotificationContent() {
         disabled={isSaving}
       >
         <Text style={styles.buttonText}>
-          {isSaving ? 'Salvando...' : 'Salvar preferencias'}
+          {isSaving ? 'Salvando...' : 'Salvar preferências'}
         </Text>
       </Pressable>
+
+      {shouldAuthenticate && (
+        <Authentication
+          handleCancel={() => {
+            setShouldAuthenticate(false);
+          }}
+          handleConfirm={() => {
+            setShouldAuthenticate(false);
+          }}
+        />
+      )}
     </ScrollView>
   );
 }
@@ -335,6 +398,14 @@ const styles = StyleSheet.create({
   dropdownScrollArea: {
     maxHeight: 220,
   },
+  searchInput: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 16,
+  },
   dropdownScrollContent: {
     gap: 8,
   },
@@ -357,6 +428,18 @@ const styles = StyleSheet.create({
   },
   optionTextSelected: {
     fontWeight: '600',
+  },
+  emptyState: {
+    minHeight: 72,
+    borderWidth: 1,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  emptyStateText: {
+    textAlign: 'center',
   },
   button: {
     marginTop: 30,

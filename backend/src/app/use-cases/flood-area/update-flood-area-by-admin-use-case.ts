@@ -34,52 +34,51 @@ export class UpdateFloodAreaByAdminUseCase {
       body.status.trim().toLowerCase() === 'completed' &&
       floodAreaExists.status.trim().toLowerCase() !== 'completed';
 
-    // if (isCompletedNow) {
-    const preferences =
-      await this.userAlertPreferenceRepository.listUserAlertPreferencesByLocation(
-        floodAreaExists.state.trim(),
-        floodAreaExists.city.trim()
-      );
+    if (isCompletedNow) {
+      const preferences =
+        await this.userAlertPreferenceRepository.listUserAlertPreferencesByLocation(
+          floodAreaExists.state.trim(),
+          floodAreaExists.city.trim()
+        );
 
-    console.log("preferences: ", preferences);
-    const userIds = [...new Set(preferences.map((preference) => preference.userId))];
-    const notificationContent = `Uma area alagada foi confirmada em ${floodAreaExists.city}.`;
+      const userIds = [...new Set(preferences.map((preference) => preference.userId))];
+      const notificationContent = `Uma área alagada foi confirmada em ${floodAreaExists.city}.`;
 
-    if (userIds.length > 0) {
-      const devices =
-        await this.userDeviceRepository.listUserDevicesByUserIds(userIds);
-      const pushTokens = [
-        ...new Set(devices.map((device) => device.pushToken.trim()).filter(Boolean)),
-      ];
+      if (userIds.length > 0) {
+        const devices =
+          await this.userDeviceRepository.listUserDevicesByUserIds(userIds);
+        const pushTokens = [
+          ...new Set(devices.map((device) => device.pushToken.trim()).filter(Boolean)),
+        ];
 
-      if (pushTokens.length > 0) {
-        await this.pushNotificationService.send(
-          pushTokens.map((pushToken) => ({
-            to: pushToken,
-            title: 'Novo alerta confirmado',
-            body: notificationContent,
-            data: {
-              floodAreaId: floodArea.id,
-              city: floodAreaExists.city,
-              state: floodAreaExists.state,
-              status: body.status,
-            },
-          }))
+        if (pushTokens.length > 0) {
+          await this.pushNotificationService.send(
+            pushTokens.map((pushToken) => ({
+              to: pushToken,
+              title: 'Novo alerta confirmado',
+              body: notificationContent,
+              data: {
+                floodAreaId: floodArea.id,
+                city: floodAreaExists.city,
+                state: floodAreaExists.state,
+                status: body.status,
+              },
+            }))
+          );
+        }
+
+        await Promise.all(
+          userIds.map((userId) =>
+            this.notificationRepository.createNotification(
+              new NotificationEntity({
+                userId,
+                content: notificationContent,
+              })
+            )
+          )
         );
       }
-
-      await Promise.all(
-        userIds.map((userId) =>
-          this.notificationRepository.createNotification(
-            new NotificationEntity({
-              userId,
-              content: notificationContent,
-            })
-          )
-        )
-      );
     }
-    // }
 
     return floodArea;
   }

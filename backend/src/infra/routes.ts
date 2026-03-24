@@ -25,6 +25,7 @@ import { listPendingFloodAreaByUserIdController } from './controllers/flood-area
 import { updateFloodAreaByUserController } from './controllers/flood-area/update-flood-area-by-user-controller';
 import { updateFloodAreaByAdminController } from './controllers/flood-area/update-flood-area-by-admin-controller';
 import { saveUserAlertPreferencesController } from './controllers/user/save-user-alert-preferences-controller';
+import { listCitiesByStateController } from './controllers/location/list-cities-by-state-controller';
 
 export class Routes {
   public router: Router;
@@ -107,6 +108,7 @@ export class Routes {
       authorize,
       saveUserAlertPreferencesController.handle
     );
+    this.router.get('/location/cities', listCitiesByStateController.handle);
 
     return this.router;
   }

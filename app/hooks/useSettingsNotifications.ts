@@ -15,6 +15,10 @@ type SaveAlertPreferencesDTO = {
 type StateOption = {
   id: string;
   name: string;
+};
+
+type FetchCitiesResponse = {
+  state: string;
   cities: string[];
 };
 
@@ -30,8 +34,8 @@ async function getPushToken() {
 
   if (finalStatus !== 'granted') {
     Alert.alert(
-      'Notificacoes desativadas',
-      'Precisamos da sua permissao para enviar alertas da sua localidade.',
+      'Notificações desativadas',
+      'Precisamos da sua permissão para enviar alertas da sua localidade.',
       [
         { text: 'Agora nao', style: 'cancel' },
         {
@@ -51,7 +55,7 @@ async function getPushToken() {
     Constants.easConfig?.projectId;
 
   if (!projectId) {
-    throw new Error('Projeto EAS nao configurado para notificacoes push.');
+    throw new Error('Projeto EAS não configurado para notificações push.');
   }
 
   if (Platform.OS === 'android') {
@@ -71,8 +75,10 @@ export function useSettingsNotifications(states: StateOption[]) {
 
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [selectedCities, setSelectedCities] = useState<string[]>([]);
+  const [cities, setCities] = useState<string[]>([]);
   const [isStateOpen, setIsStateOpen] = useState(false);
   const [isCitiesOpen, setIsCitiesOpen] = useState(false);
+  const [shouldAuthenticate, setShouldAuthenticate] = useState(false);
 
   const stateData = useMemo(
     () => states.find((state) => state.id === selectedState) ?? null,
@@ -84,23 +90,50 @@ export function useSettingsNotifications(states: StateOption[]) {
       API.post('/user/alert-preferences', payload),
     onSuccess: () => {
       Alert.alert(
-        'Preferencias salvas',
-        `Voce recebera alertas para ${stateData?.name ?? 'seu estado'} nas cidades: ${selectedCities.join(', ')}.`
+        'Preferências salvas',
+        `Você receberá alertas para ${stateData?.name ?? 'seu estado'} nas cidades: ${selectedCities.join(', ')}.`
       );
     },
     onError: () => {
       Alert.alert(
         'Erro ao salvar',
-        'Nao foi possivel salvar suas preferencias agora. Tente novamente.'
+        'Não foi possível salvar suas preferências agora. Tente novamente.'
       );
     },
   });
 
-  function handleSelectState(stateId: string) {
+  const fetchCitiesMutation = useMutation({
+    mutationFn: async (stateId: string) => {
+      const response = await API.get<FetchCitiesResponse>('/location/cities', {
+        params: { state: stateId },
+      });
+
+      return response.data;
+    },
+    onSuccess: (data) => {
+      setCities(data.cities);
+    },
+    onError: () => {
+      setCities([]);
+      Alert.alert(
+        'Erro ao carregar cidades',
+        'Não foi possível buscar as cidades desse Estado agora. Tente novamente.'
+      );
+    },
+  });
+
+  async function handleSelectState(stateId: string) {
     setSelectedState(stateId);
     setSelectedCities([]);
+    setCities([]);
     setIsStateOpen(false);
     setIsCitiesOpen(false);
+
+    try {
+      await fetchCitiesMutation.mutateAsync(stateId);
+    } catch {
+      // Alert handled by the mutation.
+    }
   }
 
   function toggleCity(city: string) {
@@ -111,17 +144,14 @@ export function useSettingsNotifications(states: StateOption[]) {
 
   async function handleSave() {
     if (!authentication.authenticated) {
-      Alert.alert(
-        'Autenticacao necessaria',
-        'Entre na sua conta para salvar preferencias de notificacao.'
-      );
+      setShouldAuthenticate(true);
       return;
     }
 
     if (!selectedState) {
       Alert.alert(
         'Erro ao salvar',
-        'Selecione um estado antes de salvar suas preferencias.'
+        'Selecione um Estado antes de salvar suas preferências.'
       );
       return;
     }
@@ -129,7 +159,7 @@ export function useSettingsNotifications(states: StateOption[]) {
     if (selectedCities.length === 0) {
       Alert.alert(
         'Erro ao salvar',
-        'Selecione pelo menos uma cidade antes de salvar suas preferencias.'
+        'Selecione pelo menos uma cidade antes de salvar suas preferências.'
       );
       return;
     }
@@ -137,7 +167,7 @@ export function useSettingsNotifications(states: StateOption[]) {
     if (!stateData) {
       Alert.alert(
         'Erro ao salvar',
-        'Nao foi possivel identificar o estado selecionado.'
+        'Nao foi possível identificar o Estado selecionado.'
       );
       return;
     }
@@ -154,8 +184,8 @@ export function useSettingsNotifications(states: StateOption[]) {
       });
     } catch {
       Alert.alert(
-        'Erro nas notificacoes',
-        'Nao foi possivel ativar as notificacoes neste dispositivo.'
+        'Erro nas notificações',
+        'Nao foi possível ativar as notificações neste dispositivo.'
       );
     }
   }
@@ -163,12 +193,16 @@ export function useSettingsNotifications(states: StateOption[]) {
   return {
     selectedState,
     selectedCities,
+    cities,
     isStateOpen,
     isCitiesOpen,
     stateData,
     isSaving: savePreferencesMutation.status === 'pending',
+    isFetchingCities: fetchCitiesMutation.status === 'pending',
+    shouldAuthenticate,
     setIsStateOpen,
     setIsCitiesOpen,
+    setShouldAuthenticate,
     handleSelectState,
     toggleCity,
     handleSave,
