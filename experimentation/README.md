@@ -30,21 +30,14 @@ Observacao:
 
 O arquivo `prompts.json` ja vem com duas opcoes:
 
-- `forensic_detailed`: analise mais detalhada de autenticidade, fraude, qualidade e alagamento.
+- `forensic_detailed`: analise mais detalhada de autenticidade, fraude e alagamento.
 - `flood_minimal`: analise mais direta e objetiva.
 
 Os dois prompts retornam o mesmo schema JSON:
 
-- `image_valid`
 - `flood_detected`
 - `flood_level`
 - `fraud_suspected`
-- `confidence`
-- `evidence_quality`
-- `water_coverage`
-- `scene_consistency`
-- `manipulation_probability`
-- `ai_generated_probability`
 - `reason`
 
 ## Como rodar
@@ -88,16 +81,9 @@ O CSV final contem:
 - `image_name`
 - `model`
 - `prompt_id`
-- `image_valid`
 - `flood_detected`
 - `flood_level`
 - `fraud_suspected`
-- `confidence`
-- `evidence_quality`
-- `water_coverage`
-- `scene_consistency`
-- `manipulation_probability`
-- `ai_generated_probability`
 - `reason`
 - `error`
 

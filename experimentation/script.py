@@ -6,6 +6,7 @@ import csv
 import io
 import json
 import mimetypes
+import os
 import re
 import time
 from dataclasses import dataclass
@@ -38,23 +39,14 @@ DEFAULT_PROMPTS_FILE = Path(__file__).resolve().parent / "prompts.json"
 SYSTEM_PROMPT = """
 You are a vision model evaluating whether an image contains flooding.
 Return only valid JSON with these keys:
-- "image_valid": boolean
 - "flood_detected": boolean
 - "flood_level": "none|leve|moderado|interditado"
 - "fraud_suspected": boolean
-- "confidence": number between 0 and 1
-- "evidence_quality": "high|medium|low"
-- "water_coverage": "none|small|medium|large"
-- "scene_consistency": number between 0 and 1
-- "manipulation_probability": number between 0 and 1
-- "ai_generated_probability": number between 0 and 1
 - "reason": short string
 Do not add markdown, explanations, extra keys, or commentary.
 """.strip()
 
 FLOOD_LEVEL_VALUES = {"none", "leve", "moderado", "interditado"}
-EVIDENCE_QUALITY_VALUES = {"high", "medium", "low"}
-WATER_COVERAGE_VALUES = {"none", "small", "medium", "large"}
 INLINE_SAFE_IMAGE_MIME_TYPES = {"image/png", "image/jpeg", "image/gif"}
 
 
@@ -71,20 +63,14 @@ class EncodedImage:
     image_path: Path
     mime_type: str
     base64_data: str
+    max_side: Optional[int] = None
 
 
 @dataclass(frozen=True)
 class ModelResponse:
-    image_valid: bool
     flood_detected: bool
     flood_level: str
     fraud_suspected: bool
-    confidence: float
-    evidence_quality: str
-    water_coverage: str
-    scene_consistency: float
-    manipulation_probability: float
-    ai_generated_probability: float
     reason: str
 
 
@@ -93,16 +79,9 @@ class ExperimentResult:
     image_name: str
     model: str
     prompt_id: str
-    image_valid: Optional[bool]
     flood_detected: Optional[bool]
     flood_level: Optional[str]
     fraud_suspected: Optional[bool]
-    confidence: Optional[float]
-    evidence_quality: Optional[str]
-    water_coverage: Optional[str]
-    scene_consistency: Optional[float]
-    manipulation_probability: Optional[float]
-    ai_generated_probability: Optional[float]
     reason: Optional[str]
     error: Optional[str] = None
 
@@ -151,6 +130,33 @@ def parse_args() -> argparse.Namespace:
         default=400,
         help="Limite de tokens gerados por resposta.",
     )
+    parser.add_argument(
+        "--max-image-side",
+        type=int,
+        default=768,
+        help=(
+            "Maior lado da imagem enviada ao modelo, em pixels. "
+            "Use 0 para enviar no tamanho original. Padrao: 768."
+        ),
+    )
+    parser.add_argument(
+        "--context-retry-image-sides",
+        default="512,384",
+        help=(
+            "Tamanhos menores para tentar automaticamente quando o contexto estourar. "
+            "Use lista separada por virgulas ou vazio para desativar. Padrao: 512,384."
+        ),
+    )
+    parser.add_argument(
+        "--unload-model-between-models",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Descarrega o modelo no LM Studio ao finalizar todos os testes dele, "
+            "antes de passar para o proximo modelo. "
+            "Use --no-unload-model-between-models para desativar."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -164,6 +170,30 @@ def load_images(directory: Path) -> list[Path]:
         if path.is_file() and path.suffix.lower() in SUPPORTED_IMAGE_EXTENSIONS
     ]
     return sorted(image_paths)
+
+
+def parse_retry_image_sides(raw_value: str) -> list[int]:
+    if not raw_value.strip():
+        return []
+
+    retry_sides: list[int] = []
+    for raw_item in raw_value.split(","):
+        item = raw_item.strip()
+        if not item:
+            continue
+        try:
+            side = int(item)
+        except ValueError as exc:
+            raise ValueError(
+                f"Tamanho invalido em --context-retry-image-sides: {item}"
+            ) from exc
+        if side <= 0:
+            raise ValueError(
+                "--context-retry-image-sides deve conter apenas inteiros positivos."
+            )
+        retry_sides.append(side)
+
+    return retry_sides
 
 
 def load_models(models_file: Path = DEFAULT_MODELS_FILE) -> list[str]:
@@ -337,11 +367,13 @@ def _validate_prompt_ids(prompts: Sequence[PromptSpec]) -> None:
         seen_ids.add(prompt.prompt_id)
 
 
-def encode_image_to_base64(image_path: Path) -> EncodedImage:
+def encode_image_to_base64(image_path: Path, max_image_side: Optional[int] = None) -> EncodedImage:
     mime_type = mimetypes.guess_type(image_path.name)[0] or "application/octet-stream"
     image_bytes = image_path.read_bytes()
 
-    if mime_type not in INLINE_SAFE_IMAGE_MIME_TYPES:
+    if max_image_side is not None:
+        image_bytes, mime_type = resize_image(image_bytes, max_image_side)
+    elif mime_type not in INLINE_SAFE_IMAGE_MIME_TYPES:
         image_bytes, mime_type = convert_image_to_png(image_bytes)
 
     encoded = base64.b64encode(image_bytes).decode("ascii")
@@ -350,7 +382,55 @@ def encode_image_to_base64(image_path: Path) -> EncodedImage:
         image_path=image_path.resolve(),
         mime_type=mime_type,
         base64_data=encoded,
+        max_side=max_image_side,
     )
+
+
+def build_image_variants(
+    image_path: Path,
+    max_image_side: int,
+    retry_image_sides: Sequence[int],
+) -> list[EncodedImage]:
+    requested_sides: list[Optional[int]]
+    if max_image_side > 0:
+        requested_sides = [max_image_side, *retry_image_sides]
+    else:
+        requested_sides = [None, *retry_image_sides]
+
+    variants: list[EncodedImage] = []
+    seen_sides: set[Optional[int]] = set()
+    for side in requested_sides:
+        if side in seen_sides:
+            continue
+        seen_sides.add(side)
+        variants.append(encode_image_to_base64(image_path, side))
+
+    return variants
+
+
+def resize_image(image_bytes: bytes, max_image_side: int) -> tuple[bytes, str]:
+    if Image is None:
+        raise RuntimeError(
+            "Pillow nao esta instalado. Instale-o para redimensionar imagens antes do envio."
+        )
+
+    with Image.open(io.BytesIO(image_bytes)) as image:
+        image.load()
+        resampling_filter = getattr(Image, "Resampling", Image).LANCZOS
+        image.thumbnail((max_image_side, max_image_side), resampling_filter)
+
+        if image.mode in ("RGBA", "LA") or (
+            image.mode == "P" and "transparency" in image.info
+        ):
+            background = Image.new("RGB", image.size, (255, 255, 255))
+            background.paste(image.convert("RGBA"), mask=image.convert("RGBA").split()[-1])
+            image = background
+        elif image.mode != "RGB":
+            image = image.convert("RGB")
+
+        output = io.BytesIO()
+        image.save(output, format="JPEG", quality=85, optimize=True)
+    return output.getvalue(), "image/jpeg"
 
 
 def convert_image_to_png(image_bytes: bytes) -> tuple[bytes, str]:
@@ -368,66 +448,149 @@ def call_model(
     base_url: str,
     model: str,
     prompt: PromptSpec,
-    image: EncodedImage,
+    image_variants: Sequence[EncodedImage],
     timeout: int = 120,
     max_tokens: int = 400,
 ) -> str:
     endpoint = f"{base_url.rstrip('/')}/chat/completions"
-    image_data_url = f"data:{image.mime_type};base64,{image.base64_data}"
     system_instruction = prompt.system_prompt or SYSTEM_PROMPT
 
-    content_variants = [
-        [
-            {"type": "text", "text": prompt.user_prompt},
-            {"type": "image_url", "image_url": {"url": image_data_url}},
-        ],
-        [
-            {"type": "text", "text": prompt.user_prompt},
-            {"type": "image_url", "image_url": image_data_url},
-        ],
-        [
-            {"type": "text", "text": prompt.user_prompt},
-            {"type": "image_url", "image_url": {"url": image.base64_data}},
-        ],
-    ]
-
     last_error: Optional[Exception] = None
-    for content in content_variants:
-        current_max_tokens = max_tokens
-        while True:
-            payload = {
-                "model": model,
-                "temperature": 0,
-                "max_tokens": current_max_tokens,
-                "messages": [
-                    {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": content},
-                ],
-            }
+    for image_index, image in enumerate(image_variants):
+        image_data_url = f"data:{image.mime_type};base64,{image.base64_data}"
+        content_variants = [
+            [
+                {"type": "text", "text": prompt.user_prompt},
+                {"type": "image_url", "image_url": {"url": image_data_url}},
+            ],
+            [
+                {"type": "text", "text": prompt.user_prompt},
+                {"type": "image_url", "image_url": image_data_url},
+            ],
+            [
+                {"type": "text", "text": prompt.user_prompt},
+                {"type": "image_url", "image_url": {"url": image.base64_data}},
+            ],
+        ]
 
-            try:
-                raw_response = post_chat_completion(endpoint, payload, timeout)
-                response_payload = json.loads(raw_response)
-                return extract_assistant_content(response_payload)
-            except RuntimeError as exc:
-                last_error = exc
-                overflow_adjustment = suggest_smaller_max_tokens(exc, current_max_tokens)
-                if overflow_adjustment is not None and overflow_adjustment < current_max_tokens:
-                    log(
-                        f"Contexto excedido para modelo {model}; reduzindo max_tokens "
-                        f"de {current_max_tokens} para {overflow_adjustment} e tentando novamente"
+        try_next_image_size = False
+        for content in content_variants:
+            current_max_tokens = max_tokens
+            while True:
+                payload = {
+                    "model": model,
+                    "temperature": 0,
+                    "max_tokens": current_max_tokens,
+                    "messages": [
+                        {"role": "system", "content": system_instruction},
+                        {"role": "user", "content": content},
+                    ],
+                }
+
+                try:
+                    raw_response = post_chat_completion(endpoint, payload, timeout)
+                    response_payload = json.loads(raw_response)
+                    return extract_assistant_content(response_payload)
+                except RuntimeError as exc:
+                    last_error = exc
+                    overflow_adjustment = suggest_smaller_max_tokens(
+                        exc, current_max_tokens
                     )
-                    current_max_tokens = overflow_adjustment
-                    continue
+                    if (
+                        overflow_adjustment is not None
+                        and overflow_adjustment < current_max_tokens
+                    ):
+                        log(
+                            f"Contexto excedido para modelo {model}; reduzindo "
+                            f"max_tokens de {current_max_tokens} para "
+                            f"{overflow_adjustment} e tentando novamente"
+                        )
+                        current_max_tokens = overflow_adjustment
+                        continue
 
-                if "base64 encoded image" not in str(exc).lower():
-                    raise RuntimeError(
-                        f"HTTP ao chamar o modelo '{model}': {exc}"
-                    ) from exc
+                    if is_context_size_error(exc):
+                        next_image = image_variants[image_index + 1] if (
+                            image_index + 1 < len(image_variants)
+                        ) else None
+                        if next_image is not None:
+                            log(
+                                f"Contexto ainda excedido para modelo {model}; "
+                                f"tentando imagem menor "
+                                f"({format_image_variant(next_image)})"
+                            )
+                            try_next_image_size = True
+                            break
+
+                    if "base64 encoded image" not in str(exc).lower():
+                        raise RuntimeError(
+                            f"HTTP ao chamar o modelo '{model}': {exc}"
+                        ) from exc
+                    break
+
+            if try_next_image_size:
                 break
 
     assert last_error is not None
     raise RuntimeError(f"HTTP ao chamar o modelo '{model}': {last_error}") from last_error
+
+
+def format_image_variant(image: EncodedImage) -> str:
+    if image.max_side is None:
+        return "original"
+    return f"max_side={image.max_side}px"
+
+
+def is_context_size_error(exc: Exception) -> bool:
+    return re.search(
+        r"request \(\d+ tokens\) exceeds the available context size \(\d+ tokens\)",
+        str(exc),
+        flags=re.IGNORECASE,
+    ) is not None
+
+
+def native_api_base_url(base_url: str) -> str:
+    normalized = base_url.rstrip("/")
+    if normalized.endswith("/v1"):
+        return normalized[: -len("/v1")] + "/api/v1"
+    if normalized.endswith("/api/v1"):
+        return normalized
+    return normalized + "/api/v1"
+
+
+def build_headers() -> dict[str, str]:
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    api_token = os.environ.get("LM_API_TOKEN")
+    if api_token:
+        headers["Authorization"] = f"Bearer {api_token}"
+    return headers
+
+
+def unload_model(base_url: str, model: str, timeout: int) -> None:
+    endpoint = f"{native_api_base_url(base_url)}/models/unload"
+    payload = {"instance_id": model}
+    request_data = json.dumps(payload).encode("utf-8")
+    http_request = request.Request(
+        endpoint,
+        data=request_data,
+        headers=build_headers(),
+        method="POST",
+    )
+
+    try:
+        with request.urlopen(http_request, timeout=timeout) as response:
+            response.read()
+    except error.HTTPError as exc:
+        error_body = exc.read().decode("utf-8", errors="replace")
+        if exc.code == 404 and "model_not_found" in error_body:
+            return
+        raise RuntimeError(f"HTTP {exc.code} ao descarregar o modelo: {error_body}") from exc
+    except error.URLError as exc:
+        raise RuntimeError(
+            f"Falha de conexao com o LM Studio no endpoint {endpoint}: {exc.reason}"
+        ) from exc
 
 
 def post_chat_completion(endpoint: str, payload: dict[str, Any], timeout: int) -> str:
@@ -435,10 +598,7 @@ def post_chat_completion(endpoint: str, payload: dict[str, Any], timeout: int) -
     http_request = request.Request(
         endpoint,
         data=request_data,
-        headers={
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        },
+        headers=build_headers(),
         method="POST",
     )
 
@@ -517,49 +677,18 @@ def parse_model_response(raw_response: str) -> ModelResponse:
     if not isinstance(parsed, dict):
         raise ValueError("A resposta do modelo nao e um objeto JSON.")
 
-    image_valid = parse_boolean_field(parsed.get("image_valid"), "image_valid")
     flood_detected = parse_boolean_field(parsed.get("flood_detected"), "flood_detected")
     flood_level = parse_enum_field(parsed.get("flood_level"), "flood_level", FLOOD_LEVEL_VALUES)
     fraud_suspected = parse_boolean_field(
         parsed.get("fraud_suspected"),
         "fraud_suspected",
     )
-    confidence_value = parse_probability_field(parsed.get("confidence"), "confidence")
-    evidence_quality = parse_enum_field(
-        parsed.get("evidence_quality"),
-        "evidence_quality",
-        EVIDENCE_QUALITY_VALUES,
-    )
-    water_coverage = parse_enum_field(
-        parsed.get("water_coverage"),
-        "water_coverage",
-        WATER_COVERAGE_VALUES,
-    )
-    scene_consistency = parse_probability_field(
-        parsed.get("scene_consistency"),
-        "scene_consistency",
-    )
-    manipulation_probability = parse_probability_field(
-        parsed.get("manipulation_probability"),
-        "manipulation_probability",
-    )
-    ai_generated_probability = parse_probability_field(
-        parsed.get("ai_generated_probability"),
-        "ai_generated_probability",
-    )
     reason = parse_reason_field(parsed.get("reason"))
 
     return ModelResponse(
-        image_valid=image_valid,
         flood_detected=flood_detected,
         flood_level=flood_level,
         fraud_suspected=fraud_suspected,
-        confidence=round(confidence_value, 6),
-        evidence_quality=evidence_quality,
-        water_coverage=water_coverage,
-        scene_consistency=round(scene_consistency, 6),
-        manipulation_probability=round(manipulation_probability, 6),
-        ai_generated_probability=round(ai_generated_probability, 6),
         reason=reason,
     )
 
@@ -574,27 +703,6 @@ def parse_boolean_field(value: Any, field_name: str) -> bool:
         if normalized == "false":
             return False
     raise ValueError(f"Campo '{field_name}' ausente ou nao booleano.")
-
-
-def parse_probability_field(value: Any, field_name: str) -> float:
-    if isinstance(value, bool):
-        raise ValueError(f"Campo '{field_name}' deve ser numerico entre 0.0 e 1.0.")
-
-    if isinstance(value, (int, float)):
-        parsed_value = float(value)
-    elif isinstance(value, str):
-        try:
-            parsed_value = float(value.strip())
-        except ValueError as exc:
-            raise ValueError(
-                f"Campo '{field_name}' deve ser numerico entre 0.0 e 1.0."
-            ) from exc
-    else:
-        raise ValueError(f"Campo '{field_name}' deve ser numerico entre 0.0 e 1.0.")
-
-    if not 0.0 <= parsed_value <= 1.0:
-        raise ValueError(f"Campo '{field_name}' deve estar entre 0.0 e 1.0.")
-    return parsed_value
 
 
 def parse_enum_field(value: Any, field_name: str, allowed_values: set[str]) -> str:
@@ -671,22 +779,33 @@ def build_error_results(
             image_name=image_name,
             model=model,
             prompt_id=prompt.prompt_id,
-            image_valid=None,
             flood_detected=None,
             flood_level=None,
             fraud_suspected=None,
-            confidence=None,
-            evidence_quality=None,
-            water_coverage=None,
-            scene_consistency=None,
-            manipulation_probability=None,
-            ai_generated_probability=None,
             reason=None,
             error=error_message,
         )
         for model in models
         for prompt in prompts
     ]
+
+
+def build_error_result(
+    image_name: str,
+    model: str,
+    prompt: PromptSpec,
+    error_message: str,
+) -> ExperimentResult:
+    return ExperimentResult(
+        image_name=image_name,
+        model=model,
+        prompt_id=prompt.prompt_id,
+        flood_detected=None,
+        flood_level=None,
+        fraud_suspected=None,
+        reason=None,
+        error=error_message,
+    )
 
 
 def run_experiment(
@@ -696,32 +815,60 @@ def run_experiment(
     base_url: str,
     timeout: int,
     max_tokens: int,
+    max_image_side: int,
+    retry_image_sides: Sequence[int],
+    unload_model_between_models: bool,
 ) -> list[ExperimentResult]:
     results: list[ExperimentResult] = []
     total_runs = len(images) * len(models) * len(prompts)
     current_run = 0
 
+    encoded_images_by_path: dict[Path, list[EncodedImage]] = {}
+    image_errors_by_path: dict[Path, str] = {}
     for image_path in images:
-        image_start_time = time.perf_counter()
         try:
-            encoded_image = encode_image_to_base64(image_path)
+            encoded_images_by_path[image_path] = build_image_variants(
+                image_path=image_path,
+                max_image_side=max_image_side,
+                retry_image_sides=retry_image_sides,
+            )
         except Exception as exc:
             error_message = f"Falha ao ler/codificar imagem: {exc}"
             log(f"{error_message} ({image_path})")
-            results.extend(build_error_results(image_path.name, models, prompts, error_message))
-            current_run += len(models) * len(prompts)
-            image_elapsed = time.perf_counter() - image_start_time
-            log(
-                f"Imagem {image_path.name} finalizada em {format_duration(image_elapsed)}"
-            )
-            continue
+            image_errors_by_path[image_path] = error_message
 
-        for model in models:
-            for prompt in prompts:
+    for model in models:
+        model_start_time = time.perf_counter()
+        log(f"Iniciando modelo {model}")
+
+        for prompt in prompts:
+            prompt_start_time = time.perf_counter()
+            log(f"Iniciando prompt {prompt.prompt_id} no modelo {model}")
+
+            for image_path in images:
                 current_run += 1
+                image_error = image_errors_by_path.get(image_path)
+                if image_error is not None:
+                    log(
+                        f"[{current_run}/{total_runs}] Pulando imagem {image_path.name} | "
+                        f"modelo {model} | prompt {prompt.prompt_id}: {image_error}"
+                    )
+                    results.append(
+                        build_error_result(
+                            image_name=image_path.name,
+                            model=model,
+                            prompt=prompt,
+                            error_message=image_error,
+                        )
+                    )
+                    continue
+
+                image_variants = encoded_images_by_path[image_path]
+                encoded_image = image_variants[0]
                 log(
                     f"[{current_run}/{total_runs}] Processando imagem {encoded_image.image_name} | "
-                    f"modelo {model} | prompt {prompt.prompt_id}"
+                    f"modelo {model} | prompt {prompt.prompt_id} | "
+                    f"{format_image_variant(encoded_image)}"
                 )
 
                 try:
@@ -729,7 +876,7 @@ def run_experiment(
                         base_url=base_url,
                         model=model,
                         prompt=prompt,
-                        image=encoded_image,
+                        image_variants=image_variants,
                         timeout=timeout,
                         max_tokens=max_tokens,
                     )
@@ -739,16 +886,9 @@ def run_experiment(
                             image_name=encoded_image.image_name,
                             model=model,
                             prompt_id=prompt.prompt_id,
-                            image_valid=parsed_response.image_valid,
                             flood_detected=parsed_response.flood_detected,
                             flood_level=parsed_response.flood_level,
                             fraud_suspected=parsed_response.fraud_suspected,
-                            confidence=parsed_response.confidence,
-                            evidence_quality=parsed_response.evidence_quality,
-                            water_coverage=parsed_response.water_coverage,
-                            scene_consistency=parsed_response.scene_consistency,
-                            manipulation_probability=parsed_response.manipulation_probability,
-                            ai_generated_probability=parsed_response.ai_generated_probability,
                             reason=parsed_response.reason,
                         )
                     )
@@ -762,25 +902,27 @@ def run_experiment(
                             image_name=encoded_image.image_name,
                             model=model,
                             prompt_id=prompt.prompt_id,
-                            image_valid=None,
                             flood_detected=None,
                             flood_level=None,
                             fraud_suspected=None,
-                            confidence=None,
-                            evidence_quality=None,
-                            water_coverage=None,
-                            scene_consistency=None,
-                            manipulation_probability=None,
-                            ai_generated_probability=None,
                             reason=None,
                             error=str(exc),
                         )
                     )
+            prompt_elapsed = time.perf_counter() - prompt_start_time
+            log(
+                f"Prompt {prompt.prompt_id} no modelo {model} finalizado em "
+                f"{format_duration(prompt_elapsed)}"
+            )
 
-        image_elapsed = time.perf_counter() - image_start_time
-        log(
-            f"Imagem {encoded_image.image_name} finalizada em {format_duration(image_elapsed)}"
-        )
+        model_elapsed = time.perf_counter() - model_start_time
+        log(f"Modelo {model} finalizado em {format_duration(model_elapsed)}")
+        if unload_model_between_models:
+            try:
+                unload_model(base_url, model, timeout)
+                log(f"Modelo {model} descarregado antes do proximo modelo")
+            except Exception as exc:
+                log(f"Aviso: nao foi possivel descarregar modelo {model}: {exc}")
 
     return results
 
@@ -791,16 +933,9 @@ def save_results(results: Sequence[ExperimentResult], output_csv: Path) -> None:
         "image_name",
         "model",
         "prompt_id",
-        "image_valid",
         "flood_detected",
         "flood_level",
         "fraud_suspected",
-        "confidence",
-        "evidence_quality",
-        "water_coverage",
-        "scene_consistency",
-        "manipulation_probability",
-        "ai_generated_probability",
         "reason",
         "error",
     ]
@@ -814,16 +949,9 @@ def save_results(results: Sequence[ExperimentResult], output_csv: Path) -> None:
                     "image_name": result.image_name,
                     "model": result.model,
                     "prompt_id": result.prompt_id,
-                    "image_valid": result.image_valid,
                     "flood_detected": result.flood_detected,
                     "flood_level": result.flood_level,
                     "fraud_suspected": result.fraud_suspected,
-                    "confidence": result.confidence,
-                    "evidence_quality": result.evidence_quality,
-                    "water_coverage": result.water_coverage,
-                    "scene_consistency": result.scene_consistency,
-                    "manipulation_probability": result.manipulation_probability,
-                    "ai_generated_probability": result.ai_generated_probability,
                     "reason": result.reason,
                     "error": result.error,
                 }
@@ -837,6 +965,7 @@ def main() -> int:
         requested_models = load_models()
         prompts = load_prompts()
         images = load_images(args.images_dir)
+        retry_image_sides = parse_retry_image_sides(args.context_retry_image_sides)
     except Exception as exc:
         log(f"Erro de configuracao: {exc}")
         return 1
@@ -862,6 +991,11 @@ def main() -> int:
         f"{len(images)} imagens | {len(models)} modelos | "
         f"{len(prompts)} prompts | {total_runs} execucoes"
     )
+    if args.max_image_side > 0:
+        log(f"Imagens serao enviadas com lado maximo inicial de {args.max_image_side}px")
+    if retry_image_sides:
+        retry_sides = ", ".join(f"{side}px" for side in retry_image_sides)
+        log(f"Fallbacks de imagem menor em estouro de contexto: {retry_sides}")
 
     experiment_start_time = time.perf_counter()
     results = run_experiment(
@@ -871,6 +1005,9 @@ def main() -> int:
         base_url=args.base_url,
         timeout=args.timeout,
         max_tokens=args.max_tokens,
+        max_image_side=args.max_image_side,
+        retry_image_sides=retry_image_sides,
+        unload_model_between_models=args.unload_model_between_models,
     )
     save_results(results, args.output_csv)
 

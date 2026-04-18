@@ -1,57 +1,6 @@
-[experiment] Iniciando experimento de deteccao de alagamentos com LM Studio
-[experiment] 8 imagens | 2 modelos | 2 prompts | 32 execucoes
-[experiment] [1/32] Processando imagem image-17.webp | modelo qwen/qwen3-vl-8b | prompt forensic_detailed
-[experiment] [2/32] Processando imagem image-17.webp | modelo qwen/qwen3-vl-8b | prompt flood_minimal
-[experiment] [3/32] Processando imagem image-17.webp | modelo mistralai/ministral-3-3b | prompt forensic_detailed
-[experiment] [4/32] Processando imagem image-17.webp | modelo mistralai/ministral-3-3b | prompt flood_minimal
-[experiment] Imagem image-17.webp finalizada em 01:40.195
-[experiment] [5/32] Processando imagem image-30.png | modelo qwen/qwen3-vl-8b | prompt forensic_detailed
-[experiment] [6/32] Processando imagem image-30.png | modelo qwen/qwen3-vl-8b | prompt flood_minimal
-[experiment] [7/32] Processando imagem image-30.png | modelo mistralai/ministral-3-3b | prompt forensic_detailed
-[experiment] [8/32] Processando imagem image-30.png | modelo mistralai/ministral-3-3b | prompt flood_minimal
-[experiment] Imagem image-30.png finalizada em 01:41.788
-[experiment] [9/32] Processando imagem image-38.webp | modelo qwen/qwen3-vl-8b | prompt forensic_detailed
-[experiment] [10/32] Processando imagem image-38.webp | modelo qwen/qwen3-vl-8b | prompt flood_minimal
-[experiment] Erro em imagem=image-38.webp modelo=qwen/qwen3-vl-8b prompt=flood_minimal: HTTP ao chamar o modelo 'qwen/qwen3-vl-8b': HTTP 400 ao chamar o modelo: {"error":"The model has crashed without additional information. (Exit code: 18446744072635810000)"}
-[experiment] [11/32] Processando imagem image-38.webp | modelo mistralai/ministral-3-3b | prompt forensic_detailed
-[experiment] [12/32] Processando imagem image-38.webp | modelo mistralai/ministral-3-3b | prompt flood_minimal
-[experiment] Imagem image-38.webp finalizada em 01:30.881
-[experiment] [13/32] Processando imagem image-54.png | modelo qwen/qwen3-vl-8b | prompt forensic_detailed
-[experiment] [14/32] Processando imagem image-54.png | modelo qwen/qwen3-vl-8b | prompt flood_minimal
-[experiment] Erro em imagem=image-54.png modelo=qwen/qwen3-vl-8b prompt=flood_minimal: HTTP ao chamar o modelo 'qwen/qwen3-vl-8b': HTTP 400 ao chamar o modelo: {"error":"The model has crashed without additional information. (Exit code: 18446744072635810000)"}
-[experiment] [15/32] Processando imagem image-54.png | modelo mistralai/ministral-3-3b | prompt forensic_detailed
-[experiment] [16/32] Processando imagem image-54.png | modelo mistralai/ministral-3-3b | prompt flood_minimal
-[experiment] Imagem image-54.png finalizada em 01:54.017
-[experiment] [17/32] Processando imagem image-55.jpg | modelo qwen/qwen3-vl-8b | prompt forensic_detailed
-[experiment] Contexto excedido para modelo qwen/qwen3-vl-8b; reduzindo max_tokens de 400 para 111 e tentando novamente
-[experiment] Contexto excedido para modelo qwen/qwen3-vl-8b; reduzindo max_tokens de 111 para 32 e tentando novamente
-[experiment] Erro em imagem=image-55.jpg modelo=qwen/qwen3-vl-8b prompt=forensic_detailed: HTTP ao chamar o modelo 'qwen/qwen3-vl-8b': HTTP 400 ao chamar o modelo: {"error":"request (4353 tokens) exceeds the available context size (4096 tokens), try increasing it"}
-[experiment] [18/32] Processando imagem image-55.jpg | modelo qwen/qwen3-vl-8b | prompt flood_minimal
-[experiment] Erro em imagem=image-55.jpg modelo=qwen/qwen3-vl-8b prompt=flood_minimal: timed out
-[experiment] [19/32] Processando imagem image-55.jpg | modelo mistralai/ministral-3-3b | prompt forensic_detailed
-[experiment] [20/32] Processando imagem image-55.jpg | modelo mistralai/ministral-3-3b | prompt flood_minimal
-[experiment] Imagem image-55.jpg finalizada em 02:34.213
-[experiment] [21/32] Processando imagem image-62.jpg | modelo qwen/qwen3-vl-8b | prompt forensic_detailed
-[experiment] Contexto excedido para modelo qwen/qwen3-vl-8b; reduzindo max_tokens de 400 para 111 e tentando novamente
-[experiment] Contexto excedido para modelo qwen/qwen3-vl-8b; reduzindo max_tokens de 111 para 32 e tentando novamente
-[experiment] Erro em imagem=image-62.jpg modelo=qwen/qwen3-vl-8b prompt=forensic_detailed: HTTP ao chamar o modelo 'qwen/qwen3-vl-8b': HTTP 400 ao chamar o modelo: {"error":"request (4353 tokens) exceeds the available context size (4096 tokens), try increasing it"}
-[experiment] [22/32] Processando imagem image-62.jpg | modelo qwen/qwen3-vl-8b | prompt flood_minimal
-[experiment] [23/32] Processando imagem image-62.jpg | modelo mistralai/ministral-3-3b | prompt forensic_detailed
-[experiment] [24/32] Processando imagem image-62.jpg | modelo mistralai/ministral-3-3b | prompt flood_minimal
-[experiment] Imagem image-62.jpg finalizada em 02:25.495
-[experiment] [25/32] Processando imagem image-65.jpg | modelo qwen/qwen3-vl-8b | prompt forensic_detailed
-[experiment] Contexto excedido para modelo qwen/qwen3-vl-8b; reduzindo max_tokens de 400 para 111 e tentando novamente
-[experiment] Contexto excedido para modelo qwen/qwen3-vl-8b; reduzindo max_tokens de 111 para 32 e tentando novamente
-[experiment] Erro em imagem=image-65.jpg modelo=qwen/qwen3-vl-8b prompt=forensic_detailed: HTTP ao chamar o modelo 'qwen/qwen3-vl-8b': HTTP 400 ao chamar o modelo: {"error":"request (4353 tokens) exceeds the available context size (4096 tokens), try increasing it"}
-[experiment] [26/32] Processando imagem image-65.jpg | modelo qwen/qwen3-vl-8b | prompt flood_minimal
-[experiment] [27/32] Processando imagem image-65.jpg | modelo mistralai/ministral-3-3b | prompt forensic_detailed
-[experiment] [28/32] Processando imagem image-65.jpg | modelo mistralai/ministral-3-3b | prompt flood_minimal
-[experiment] Imagem image-65.jpg finalizada em 01:59.534
-[experiment] [29/32] Processando imagem image-80.png | modelo qwen/qwen3-vl-8b | prompt forensic_detailed
-[experiment] [30/32] Processando imagem image-80.png | modelo qwen/qwen3-vl-8b | prompt flood_minimal
-[experiment] [31/32] Processando imagem image-80.png | modelo mistralai/ministral-3-3b | prompt forensic_detailed
-[experiment] [32/32] Processando imagem image-80.png | modelo mistralai/ministral-3-3b | prompt flood_minimal
-[experiment] Imagem image-80.png finalizada em 01:50.062
+[experiment] Prompt flood_minimal no modelo mistralai/ministral-3-3b finalizado em 26:38.894
+[experiment] Modelo mistralai/ministral-3-3b finalizado em 53:45.425
+[experiment] Modelo mistralai/ministral-3-3b descarregado antes do proximo modelo
 [experiment] Resultados salvos em outputs\flood_detection_results.csv
-[experiment] Execucoes com sucesso: 26 | Execucoes com falha: 6
-[experiment] Tempo total do experimento: 15:36.191
+[experiment] Execucoes com sucesso: 1342 | Execucoes com falha: 2
+[experiment] Tempo total do experimento: 365:59.245
