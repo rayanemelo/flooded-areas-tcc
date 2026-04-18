@@ -28,12 +28,13 @@ Observacao:
 
 ## Prompts disponiveis
 
-O arquivo `prompts.json` ja vem com duas opcoes:
+O arquivo `prompts.json` ja vem com tres opcoes:
 
-- `forensic_detailed`: analise mais detalhada de autenticidade, fraude e alagamento.
-- `flood_minimal`: analise mais direta e objetiva.
+- `full_prompt`: analise mais detalhada de autenticidade, fraude e alagamento.
+- `medium_prompt`: analise intermediaria, equilibrando validacao de autenticidade, suspeita de fraude e nivel de alagamento com menos detalhamento que o `full_prompt`.
+- `minimal_prompt`: analise mais direta e objetiva.
 
-Os dois prompts retornam o mesmo schema JSON:
+Os tres prompts retornam o mesmo schema JSON:
 
 - `flood_detected`
 - `flood_level`
