@@ -1,6 +1,4 @@
-[experiment] Prompt flood_minimal no modelo mistralai/ministral-3-3b finalizado em 26:38.894
-[experiment] Modelo mistralai/ministral-3-3b finalizado em 53:45.425
-[experiment] Modelo mistralai/ministral-3-3b descarregado antes do proximo modelo
 [experiment] Resultados salvos em outputs\flood_detection_results.csv
-[experiment] Execucoes com sucesso: 1342 | Execucoes com falha: 2
-[experiment] Tempo total do experimento: 365:59.245
+[experiment] Execucoes com sucesso: 4031 | Execucoes com falha: 1
+[experiment] Tempo total do experimento: 549:48.063
+9 horas e 9 minutos

@@ -33,7 +33,9 @@ SUPPORTED_IMAGE_EXTENSIONS = {
 
 DEFAULT_BASE_URL = "http://localhost:1234/v1"
 DEFAULT_IMAGE_DIR = Path(__file__).resolve().parent / "images"
-DEFAULT_OUTPUT_CSV = Path(__file__).resolve().parent / "outputs" / "flood_detection_results.csv"
+DEFAULT_OUTPUT_CSV = (
+    Path(__file__).resolve().parent / "outputs" / "flood_detection_results.csv"
+)
 DEFAULT_MODELS_FILE = Path(__file__).resolve().parent / "models.json"
 DEFAULT_PROMPTS_FILE = Path(__file__).resolve().parent / "prompts.json"
 SYSTEM_PROMPT = """
@@ -44,6 +46,29 @@ Return only valid JSON with these keys:
 - "fraud_suspected": boolean
 - "reason": short string
 Do not add markdown, explanations, extra keys, or commentary.
+""".strip()
+RESPONSE_SCHEMA_PROMPT = """
+Responda obrigatoriamente com UM único objeto JSON válido.
+Não use markdown, texto antes, texto depois, comentários ou chaves extras.
+
+Use exatamente esta estrutura:
+{
+  "flood_detected": true,
+  "flood_level": "leve",
+  "fraud_suspected": false,
+  "reason": "frase curta explicando a decisão"
+}
+
+Tipos e valores obrigatórios:
+- flood_detected: booleano true ou false, nunca string.
+- flood_level: uma das strings "none", "leve", "moderado" ou "interditado".
+- fraud_suspected: booleano true ou false, nunca string.
+- reason: string não vazia, curta, em português.
+
+Regras finais obrigatórias:
+- Se flood_detected for false, flood_level deve ser "none" e fraud_suspected deve ser true.
+- Se houver alagamento válido, flood_level deve ser "leve", "moderado" ou "interditado".
+- Não use nomes alternativos como severity, level, explanation, rationale, motivo ou justificativa.
 """.strip()
 
 FLOOD_LEVEL_VALUES = {"none", "leve", "moderado", "interditado"}
@@ -275,7 +300,9 @@ def resolve_model_name(requested_model: str, available_models: Sequence[str]) ->
 
     requested_core = normalize_model_name(requested)
     exact_core_matches = [
-        model for model in available_models if normalize_model_name(model) == requested_core
+        model
+        for model in available_models
+        if normalize_model_name(model) == requested_core
     ]
     if len(exact_core_matches) == 1:
         return exact_core_matches[0]
@@ -367,7 +394,9 @@ def _validate_prompt_ids(prompts: Sequence[PromptSpec]) -> None:
         seen_ids.add(prompt.prompt_id)
 
 
-def encode_image_to_base64(image_path: Path, max_image_side: Optional[int] = None) -> EncodedImage:
+def encode_image_to_base64(
+    image_path: Path, max_image_side: Optional[int] = None
+) -> EncodedImage:
     mime_type = mimetypes.guess_type(image_path.name)[0] or "application/octet-stream"
     image_bytes = image_path.read_bytes()
 
@@ -423,7 +452,9 @@ def resize_image(image_bytes: bytes, max_image_side: int) -> tuple[bytes, str]:
             image.mode == "P" and "transparency" in image.info
         ):
             background = Image.new("RGB", image.size, (255, 255, 255))
-            background.paste(image.convert("RGBA"), mask=image.convert("RGBA").split()[-1])
+            background.paste(
+                image.convert("RGBA"), mask=image.convert("RGBA").split()[-1]
+            )
             image = background
         elif image.mode != "RGB":
             image = image.convert("RGB")
@@ -453,7 +484,7 @@ def call_model(
     max_tokens: int = 400,
 ) -> str:
     endpoint = f"{base_url.rstrip('/')}/chat/completions"
-    system_instruction = prompt.system_prompt or SYSTEM_PROMPT
+    system_instruction = build_system_instruction(prompt.system_prompt)
 
     last_error: Optional[Exception] = None
     for image_index, image in enumerate(image_variants):
@@ -509,9 +540,11 @@ def call_model(
                         continue
 
                     if is_context_size_error(exc):
-                        next_image = image_variants[image_index + 1] if (
-                            image_index + 1 < len(image_variants)
-                        ) else None
+                        next_image = (
+                            image_variants[image_index + 1]
+                            if (image_index + 1 < len(image_variants))
+                            else None
+                        )
                         if next_image is not None:
                             log(
                                 f"Contexto ainda excedido para modelo {model}; "
@@ -531,7 +564,14 @@ def call_model(
                 break
 
     assert last_error is not None
-    raise RuntimeError(f"HTTP ao chamar o modelo '{model}': {last_error}") from last_error
+    raise RuntimeError(
+        f"HTTP ao chamar o modelo '{model}': {last_error}"
+    ) from last_error
+
+
+def build_system_instruction(prompt_system_prompt: Optional[str]) -> str:
+    base_instruction = prompt_system_prompt or SYSTEM_PROMPT
+    return f"{base_instruction}\n\n{RESPONSE_SCHEMA_PROMPT}"
 
 
 def format_image_variant(image: EncodedImage) -> str:
@@ -541,11 +581,14 @@ def format_image_variant(image: EncodedImage) -> str:
 
 
 def is_context_size_error(exc: Exception) -> bool:
-    return re.search(
-        r"request \(\d+ tokens\) exceeds the available context size \(\d+ tokens\)",
-        str(exc),
-        flags=re.IGNORECASE,
-    ) is not None
+    return (
+        re.search(
+            r"request \(\d+ tokens\) exceeds the available context size \(\d+ tokens\)",
+            str(exc),
+            flags=re.IGNORECASE,
+        )
+        is not None
+    )
 
 
 def native_api_base_url(base_url: str) -> str:
@@ -586,7 +629,9 @@ def unload_model(base_url: str, model: str, timeout: int) -> None:
         error_body = exc.read().decode("utf-8", errors="replace")
         if exc.code == 404 and "model_not_found" in error_body:
             return
-        raise RuntimeError(f"HTTP {exc.code} ao descarregar o modelo: {error_body}") from exc
+        raise RuntimeError(
+            f"HTTP {exc.code} ao descarregar o modelo: {error_body}"
+        ) from exc
     except error.URLError as exc:
         raise RuntimeError(
             f"Falha de conexao com o LM Studio no endpoint {endpoint}: {exc.reason}"
@@ -614,7 +659,9 @@ def post_chat_completion(endpoint: str, payload: dict[str, Any], timeout: int) -
         ) from exc
 
 
-def suggest_smaller_max_tokens(exc: Exception, current_max_tokens: int) -> Optional[int]:
+def suggest_smaller_max_tokens(
+    exc: Exception, current_max_tokens: int
+) -> Optional[int]:
     message = str(exc)
     match = re.search(
         r"request \((\d+) tokens\) exceeds the available context size \((\d+) tokens\)",
@@ -678,7 +725,9 @@ def parse_model_response(raw_response: str) -> ModelResponse:
         raise ValueError("A resposta do modelo nao e um objeto JSON.")
 
     flood_detected = parse_boolean_field(parsed.get("flood_detected"), "flood_detected")
-    flood_level = parse_enum_field(parsed.get("flood_level"), "flood_level", FLOOD_LEVEL_VALUES)
+    flood_level = parse_enum_field(
+        parsed.get("flood_level"), "flood_level", FLOOD_LEVEL_VALUES
+    )
     fraud_suspected = parse_boolean_field(
         parsed.get("fraud_suspected"),
         "fraud_suspected",
@@ -992,7 +1041,9 @@ def main() -> int:
         f"{len(prompts)} prompts | {total_runs} execucoes"
     )
     if args.max_image_side > 0:
-        log(f"Imagens serao enviadas com lado maximo inicial de {args.max_image_side}px")
+        log(
+            f"Imagens serao enviadas com lado maximo inicial de {args.max_image_side}px"
+        )
     if retry_image_sides:
         retry_sides = ", ".join(f"{side}px" for side in retry_image_sides)
         log(f"Fallbacks de imagem menor em estouro de contexto: {retry_sides}")
@@ -1016,7 +1067,9 @@ def main() -> int:
     experiment_elapsed = time.perf_counter() - experiment_start_time
 
     log(f"Resultados salvos em {args.output_csv}")
-    log(f"Execucoes com sucesso: {successful_runs} | Execucoes com falha: {failed_runs}")
+    log(
+        f"Execucoes com sucesso: {successful_runs} | Execucoes com falha: {failed_runs}"
+    )
     log(f"Tempo total do experimento: {format_duration(experiment_elapsed)}")
     return 0
 

@@ -31,10 +31,10 @@ Observacao:
 O arquivo `prompts.json` ja vem com tres opcoes:
 
 - `full_prompt`: analise mais detalhada de autenticidade, fraude e alagamento.
-- `medium_prompt`: analise intermediaria, equilibrando validacao de autenticidade, suspeita de fraude e nivel de alagamento com menos detalhamento que o `full_prompt`.
-- `minimal_prompt`: analise mais direta e objetiva.
+- `medium_prompt`: analise intermediaria e mais direta.
+- `minimal_prompt`: analise mais curta e objetiva.
 
-Os tres prompts retornam o mesmo schema JSON:
+Todos os prompts usam o mesmo schema JSON, reforcado automaticamente pelo script:
 
 - `flood_detected`
 - `flood_level`
@@ -91,6 +91,7 @@ O CSV final contem:
 ## Observacoes
 
 - O script faz uma chamada por combinacao `imagem x modelo x prompt`.
-- Se uma chamada falhar ou o modelo devolver JSON invalido, a execucao continua e o erro e registrado no CSV.
+- O script injeta uma instrucao fixa de schema junto ao prompt de sistema para reforcar o formato JSON esperado.
+- Se uma chamada falhar ou o modelo devolver JSON invalido ou fora do schema, a execucao continua e o erro e registrado no CSV.
 - O script nao espera prompts ou modelos por linha de comando; tudo vem de `prompts.json` e `models.json`.
 - Este README foi preparado para execucao manual posterior. Nenhum teste foi executado nesta etapa.
